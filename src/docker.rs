@@ -337,7 +337,7 @@ impl DockerCommand<DockerContainer<'_>> {
         container: &'a DockerContainer,
     ) -> DockerResult<DockerCommand<DockerContainer<'a>>> {
         println!("This is the Container Start function!");
-        let cmd = format!("container stop {}", &container.name);
+        let cmd = format!("container start {}", &container.name);
         Ok(DockerCommand::<DockerContainer> {
             command_string: Some(cmd),
             _docker: PhantomData::<DockerContainer>,
@@ -540,7 +540,7 @@ mod tests {
         println!("{:?}", cmd);
         assert_eq!(
             cmd.command_string.as_ref().unwrap().as_str(),
-            format!("container stop {}", container.name)
+            format!("container start {}", container.name)
         );
     }
 
