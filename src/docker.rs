@@ -333,8 +333,15 @@ impl DockerCommand<DockerContainer<'_>> {
         todo!()
     }
 
-    pub fn start(_container: &DockerContainer) -> DockerResult<()> {
-        todo!()
+    pub fn start<'a>(
+        container: &'a DockerContainer,
+    ) -> DockerResult<DockerCommand<DockerContainer<'a>>> {
+        println!("This is the Container Start function!");
+        let cmd = format!("container stop {}", &container.name);
+        Ok(DockerCommand::<DockerContainer> {
+            command_string: Some(cmd),
+            _docker: PhantomData::<DockerContainer>,
+        })
     }
 
     pub fn stop(_container: &DockerContainer) -> DockerResult<()> {
@@ -502,6 +509,39 @@ mod tests {
             host_mappings: vec![],
             build_args: HashMap::new(),
         }
+    }
+
+    fn dummy_container() -> DockerContainer<'static> {
+        let image = image();
+
+        let docker_volume = Volume {
+            host: Path::new("/test/path/host"),
+            container: Path::new("/test/path/container"),
+        };
+
+        let container = DockerContainer {
+            name: String::from("test-container"),
+            port_bindings: vec![DockerPort {
+                host: 7357,
+                container: 7357,
+            }],
+            volumes: vec![docker_volume],
+            env_vars: HashMap::default(),
+            image,
+        };
+
+        container
+    }
+
+    #[test]
+    fn test_container_start() {
+        let container = dummy_container();
+        let cmd = DockerCommand::<DockerContainer>::start(&container).unwrap();
+        println!("{:?}", cmd);
+        assert_eq!(
+            cmd.command_string.as_ref().unwrap().as_str(),
+            format!("container stop {}", container.name)
+        );
     }
 
     #[test]
