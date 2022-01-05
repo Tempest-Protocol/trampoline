@@ -329,8 +329,38 @@ impl DockerCommand<DockerContainer<'_>> {
         })
     }
 
-    pub fn cp(_container: &DockerContainer) -> DockerResult<()> {
-        todo!()
+    pub fn cp_from<'a>(
+        container: &'a DockerContainer,
+        file_path: &Path,
+        dest_path: &Path,
+    ) -> DockerResult<DockerCommand<DockerContainer<'a>>> {
+        let cmd = format!(
+            "container cp {}:{} {}",
+            &container.name,
+            &file_path.to_str().unwrap(),
+            &dest_path.to_str().unwrap()
+        );
+        Ok(DockerCommand::<DockerContainer> {
+            command_string: Some(cmd),
+            _docker: PhantomData::<DockerContainer>,
+        })
+    }
+
+    pub fn cp_to<'a>(
+        container: &'a DockerContainer,
+        file_path: &Path,
+        dest_path: &Path,
+    ) -> DockerResult<DockerCommand<DockerContainer<'a>>> {
+        let cmd = format!(
+            "container cp {} {}:{}",
+            &file_path.to_str().unwrap(),
+            &container.name,
+            &dest_path.to_str().unwrap()
+        );
+        Ok(DockerCommand::<DockerContainer> {
+            command_string: Some(cmd),
+            _docker: PhantomData::<DockerContainer>,
+        })
     }
 
     pub fn start<'a>(
@@ -554,6 +584,31 @@ mod tests {
         };
 
         container
+    }
+
+    #[test]
+    fn test_container_cp_to() {
+        let container = dummy_container();
+        let file_path = Path::new("./file.test");
+        let dest_path = Path::new("/var/lib/ckb");
+        let cmd =
+            DockerCommand::<DockerContainer>::cp_to(&container, file_path, dest_path).unwrap();
+        assert_eq!(
+            cmd.command_string.as_ref().unwrap().as_str(),
+            format!("container cp ./file.test {}:/var/lib/ckb", container.name)
+        );
+    }
+
+    fn test_container_cp_from() {
+        let container = dummy_container();
+        let file_path = Path::new("/var/lib/ckb/file.test");
+        let dest_path = Path::new(".");
+        let cmd =
+            DockerCommand::<DockerContainer>::cp_from(&container, file_path, dest_path).unwrap();
+        assert_eq!(
+            cmd.command_string.as_ref().unwrap().as_str(),
+            format!("container cp {}:/var/lib/ckb/file.test .", container.name)
+        );
     }
 
     #[test]
