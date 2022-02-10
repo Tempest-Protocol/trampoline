@@ -1,3 +1,6 @@
+pub mod compose;
+// pub mod contract;
+pub mod ckb_service;
 pub mod docker;
 pub mod opts;
 pub mod project;

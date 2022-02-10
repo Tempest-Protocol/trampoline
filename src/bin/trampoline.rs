@@ -1,9 +1,11 @@
 use std::collections::HashMap;
+use std::process::Command;
 use std::str::FromStr;
 
 use anyhow::anyhow;
 use anyhow::Result;
 use ckb_app_config::BlockAssemblerConfig;
+use ckb_app_config::CKBAppConfig;
 use ckb_hash::blake2b_256;
 
 use ckb_types::{h256, H256};
@@ -14,7 +16,7 @@ use trampoline::docker::*;
 use trampoline::opts::{NetworkCommands, SchemaCommand, TrampolineCommand};
 use trampoline::parse_hex;
 use trampoline::project::*;
-use trampoline_sdk::rpc;
+// use trampoline_sdk::rpc;
 use trampoline::schema::{Schema, SchemaInitArgs};
 use trampoline::TrampolineResource;
 use trampoline::TrampolineResourceType;
@@ -76,6 +78,60 @@ fn main() -> Result<()> {
         TrampolineCommand::Network { command } => {
             let project = TrampolineProject::from(project?);
             match command {
+                NetworkCommands::Start {} => {
+                    let _start = Command::new("docker")
+                        .arg("compose")
+                        .arg("-f")
+                        .arg("network.yml")
+                        .arg("up")
+                        .status()
+                        .unwrap();
+                }
+                NetworkCommands::Init { indexer } => {
+                    println!("WARNING: Launching using experimental Docker Compose features");
+
+                    // Init CKB
+                    trampoline::ckb_service::init_ckb_volume("ckb-template");
+                    // Generate custom config
+                    let default_lockarg = "0xc8328aabcd9b9e8e64fbc566c4385c3bdeb219d7";
+                    let ckb_config = trampoline::ckb_service::setup_ckb_config(
+                        ".trampoline/network/ckb.template",
+                        default_lockarg,
+                    );
+                    // Create CKB Node service
+                    let node = trampoline::compose::Service::node(
+                        "default-node",
+                        "ckb-template",
+                        ckb_config,
+                    );
+                    // Generate custom miner config
+                    let miner_config = trampoline::ckb_service::setup_miner_config(
+                        ".trampoline/network/ckb-miner.template",
+                        "default-node",
+                    );
+                    // Create CKB Miner service
+                    let miner = trampoline::compose::Service::miner(
+                        "ckb-template",
+                        miner_config,
+                        "default-node", // Node name
+                    );
+                    // Create CKB Indexer service
+                    // Generate Compose YAML
+                    let mut service_list = vec![node, miner];
+
+                    // Check for indexer
+                    if indexer {
+                        println!("Using --indexer flag, Indexer was included in the network.yml");
+                        // Define indexer
+                        let indexer = trampoline::compose::Service::indexer("default-node");
+                        // Add to service list
+                        service_list.push(indexer);
+                    }
+
+                    let file = trampoline::compose::File::from(service_list);
+                    let yaml_string = serde_yaml::to_string(&file).unwrap();
+                    std::fs::write("network.yml", yaml_string).expect("Unable to write file.");
+                }
                 NetworkCommands::Launch {} => {
                     let image = DockerImage {
                         name: "iamm/trampoline-env".to_string(),
@@ -235,17 +291,17 @@ fn main() -> Result<()> {
                         "http://172.17.0.2:8114".into(),
                     ]))?;
                 }
-                NetworkCommands::Rpc { hash } => {
-                    let hash = H256::from_str(hash.as_str())?;
-                    let mut rpc_client = rpc::RpcClient::new();
-                    let url = format!(
-                        "{}:{}",
-                        project.config.env.as_ref().unwrap().chain.host,
-                        project.config.env.as_ref().unwrap().chain.host_port
-                    );
-                    let result = rpc_client.get_transaction(hash, url)?;
-                    println!("Transaction with status: {}", serde_json::json!(result));
-                }
+                // NetworkCommands::Rpc { hash } => {
+                //     // let hash = H256::from_str(hash.as_str())?;
+                //     // let mut rpc_client = rpc::RpcClient::new();
+                //     // let url = format!(
+                //     //     "{}:{}",
+                //     //     project.config.env.as_ref().unwrap().chain.host,
+                //     //     project.config.env.as_ref().unwrap().chain.host_port
+                //     // );
+                //     // let result = rpc_client.get_transaction(hash, url)?;
+                //     // println!("Transaction with status: {}", serde_json::json!(result));
+                // }
                 _ => {
                     println!("Command not yet implemented!");
                     std::process::exit(0);
