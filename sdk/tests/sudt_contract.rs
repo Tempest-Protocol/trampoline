@@ -67,6 +67,7 @@ fn gen_sudt_contract(
         code: Some(JsonBytes::from_bytes(sudt_src)),
         output_rules: vec![],
         input_rules: vec![],
+        outputs_count: 1,
     }
 }
 

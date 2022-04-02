@@ -188,7 +188,6 @@ pub enum ContractCellField<A, D> {
     CellDeps(Vec<ckb_types::packed::CellDep>),
 }
 
-#[derive(Default)]
 
 pub struct Contract<A, D> {
     pub source: Option<ContractSource>,
@@ -200,6 +199,17 @@ pub struct Contract<A, D> {
     #[allow(clippy::type_complexity)]
     pub output_rules: Vec<OutputRule<A, D>>,
     pub input_rules: Vec<Box<dyn Fn(TransactionView) -> CellQuery>>,
+    pub outputs_count: usize,
+}
+
+impl<A,D> Default for Contract<A,D>
+where
+    D: JsonByteConversion + MolConversion + BytesConversion + Clone + Default,
+    A: JsonByteConversion + MolConversion + BytesConversion + Clone + Default,
+{
+    fn default() -> Self {
+        Self { source: Default::default(), data: Default::default(), args: Default::default(), lock: Default::default(), type_: Default::default(), code: Default::default(), output_rules: Default::default(), input_rules: Default::default(), outputs_count: 1 }
+    }
 }
 
 impl<A, D> Contract<A, D>
@@ -331,6 +341,9 @@ where
         self.input_rules.push(Box::new(query_func))
     }
 
+    pub fn output_count(&mut self, count: usize) {
+        self.outputs_count = count;
+    } 
     pub fn tx_template(&self) -> TransactionView {
         let arg_size = self.args.to_mol().as_builder().expected_length() as u64;
         let data_size = self.data.to_mol().as_builder().expected_length() as u64;
@@ -339,14 +352,18 @@ where
         (0..data_size as usize).into_iter().for_each(|_| {
             data.push(0u8);
         });
-        let mut tx = TransactionBuilder::default()
-            .output(
+        let mut tx = TransactionBuilder::default();
+
+        for _ in 0..self.outputs_count {
+           tx =  tx .output(
                 CellOutput::new_builder()
                     .capacity((data_size + arg_size).pack())
                     .type_(Some(ckb_types::packed::Script::from(self.as_script().unwrap())).pack())
                     .build(),
             )
             .output_data(data.pack());
+        }
+           
 
         if let Some(ContractSource::Chain(outp)) = self.source.clone() {
             tx = tx.cell_dep(self.as_cell_dep(outp).into());
