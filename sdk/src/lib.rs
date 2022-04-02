@@ -1,13 +1,10 @@
-
 pub mod rpc;
-
 
 pub mod chain;
 
 pub mod contract;
 
 pub mod account;
-
 
 pub mod ckb_types {
     pub use ckb_types::*;

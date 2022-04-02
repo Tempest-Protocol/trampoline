@@ -1,6 +1,7 @@
 extern crate ckb_always_success_script;
 extern crate trampoline_sdk;
 
+use ckb_types::packed::CellOutputBuilder;
 use trampoline_sdk::chain::{MockChain, MockChainTxProvider as ChainRpc};
 use trampoline_sdk::contract::*;
 use trampoline_sdk::contract::{builtins::sudt::*, generator::*, schema::*};
@@ -335,7 +336,7 @@ fn test_contract_pack_and_unpack_data() {
 fn test_sudt_data_hash_gen_json() {
     let sudt_contract = gen_sudt_contract(None, None);
 
-    let json_code_hash = ckb_jsonrpc_types::Byte32::from(sudt_contract.data_hash().unwrap().pack());
+    let json_code_hash = ckb_jsonrpc_types::Byte32::from(sudt_contract.code_hash().unwrap().pack());
 
     let as_json_hex_str = serde_json::to_string(&json_code_hash).unwrap();
 
@@ -346,10 +347,22 @@ fn test_sudt_data_hash_gen_json() {
 }
 
 #[test]
-fn test_sudt_data_hash_gen() {
-    let sudt_contract = gen_sudt_contract(None, None);
+fn test_sudt_code_hash_gen() {
+    let mut sudt_contract = gen_sudt_contract(None, None);
 
-    let code_hash = sudt_contract.data_hash().unwrap().pack();
+    let code_hash = sudt_contract.code_hash().unwrap().pack();
     let hash_hex_str = format!("0x{}", hex::encode(&code_hash.raw_data()));
     assert_eq!(EXPECTED_SUDT_HASH, hash_hex_str.as_str());
+}
+
+#[test]
+fn test_data_hash_is_accurate() {
+    let mut sudt_contract = gen_sudt_contract(None, None);
+    sudt_contract.set_data(SchemaPrimitiveType::from(123_u128));
+    let data_hash = sudt_contract.data_hash().unwrap().pack();
+    let cell_output = CellOutput::calc_data_hash(123_u128.pack().as_slice());
+    assert_eq!(data_hash.as_slice(), cell_output.as_slice());
+    sudt_contract.set_data(SchemaPrimitiveType::from(124_u128));
+    let data_hash = sudt_contract.data_hash().unwrap().pack();
+    assert_ne!(data_hash.as_slice(), cell_output.as_slice());
 }

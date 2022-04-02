@@ -1,9 +1,8 @@
-
 pub use ckb_jsonrpc_types::JsonBytes;
 
+use crate::ckb_types::{bytes::Bytes, prelude::*};
 use std::marker::PhantomData;
 use std::prelude::v1::*;
-use crate::ckb_types::{bytes::Bytes, prelude::*};
 
 pub trait JsonByteConversion {
     fn to_json_bytes(&self) -> JsonBytes;
@@ -31,10 +30,6 @@ pub trait BytesConversion: MolConversion {
     fn to_bytes(&self) -> Bytes;
 }
 
-// TO DO: Think about the tradeoffs of deriving these traits?
-// This is a wrapper type for schema primitive types that works
-// for all primitives that have conversion trait implemented.
-// Saves from having to implement mol conversion traits etc
 #[derive(Clone, Debug, Default, Eq, PartialEq, Hash)]
 pub struct SchemaPrimitiveType<T, M> {
     pub inner: T,
