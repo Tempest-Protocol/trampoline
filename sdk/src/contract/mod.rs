@@ -188,7 +188,6 @@ pub enum ContractCellField<A, D> {
     CellDeps(Vec<ckb_types::packed::CellDep>),
 }
 
-
 pub struct Contract<A, D> {
     pub source: Option<ContractSource>,
     pub data: D,
@@ -202,13 +201,23 @@ pub struct Contract<A, D> {
     pub outputs_count: usize,
 }
 
-impl<A,D> Default for Contract<A,D>
+impl<A, D> Default for Contract<A, D>
 where
     D: JsonByteConversion + MolConversion + BytesConversion + Clone + Default,
     A: JsonByteConversion + MolConversion + BytesConversion + Clone + Default,
 {
     fn default() -> Self {
-        Self { source: Default::default(), data: Default::default(), args: Default::default(), lock: Default::default(), type_: Default::default(), code: Default::default(), output_rules: Default::default(), input_rules: Default::default(), outputs_count: 1 }
+        Self {
+            source: Default::default(),
+            data: Default::default(),
+            args: Default::default(),
+            lock: Default::default(),
+            type_: Default::default(),
+            code: Default::default(),
+            output_rules: Default::default(),
+            input_rules: Default::default(),
+            outputs_count: 1,
+        }
     }
 }
 
@@ -343,7 +352,7 @@ where
 
     pub fn output_count(&mut self, count: usize) {
         self.outputs_count = count;
-    } 
+    }
     pub fn tx_template(&self) -> TransactionView {
         let arg_size = self.args.to_mol().as_builder().expected_length() as u64;
         let data_size = self.data.to_mol().as_builder().expected_length() as u64;
@@ -355,15 +364,17 @@ where
         let mut tx = TransactionBuilder::default();
 
         for _ in 0..self.outputs_count {
-           tx =  tx .output(
-                CellOutput::new_builder()
-                    .capacity((data_size + arg_size).pack())
-                    .type_(Some(ckb_types::packed::Script::from(self.as_script().unwrap())).pack())
-                    .build(),
-            )
-            .output_data(data.pack());
+            tx = tx
+                .output(
+                    CellOutput::new_builder()
+                        .capacity((data_size + arg_size).pack())
+                        .type_(
+                            Some(ckb_types::packed::Script::from(self.as_script().unwrap())).pack(),
+                        )
+                        .build(),
+                )
+                .output_data(data.pack());
         }
-           
 
         if let Some(ContractSource::Chain(outp)) = self.source.clone() {
             tx = tx.cell_dep(self.as_cell_dep(outp).into());
@@ -440,28 +451,32 @@ where
                     .collect::<Vec<crate::ckb_types::packed::Bytes>>(),
             )
             .build();
-        let mut idx = 0;
-        let outputs = tx.clone().outputs().into_iter().filter_map(|output| {
-            let self_script_hash: ckb_types::packed::Byte32 = self.script_hash().unwrap().into();
 
-            if let Some(type_) = output.type_().to_opt() {
-                if type_.calc_script_hash() == self_script_hash {
+        let outputs = tx
+            .clone()
+            .outputs()
+            .into_iter()
+            .enumerate()
+            .filter_map(|(idx, output)| {
+                let self_script_hash: ckb_types::packed::Byte32 =
+                    self.script_hash().unwrap().into();
+
+                if let Some(type_) = output.type_().to_opt() {
+                    if type_.calc_script_hash() == self_script_hash {
+                        return Some((idx, tx.output_with_data(idx).unwrap()));
+                    }
+                }
+
+                if output.lock().calc_script_hash() == self_script_hash {
                     return Some((idx, tx.output_with_data(idx).unwrap()));
                 }
-            }
 
-            if output.lock().calc_script_hash() == self_script_hash {
-                return Some((idx, tx.output_with_data(idx).unwrap()));
-            }
-
-            idx += 1;
-            None
-        });
+                None
+            });
 
         let mut ctx = RuleContext::new(tx_meta.clone());
 
         let outputs = outputs
-            .into_iter()
             .map(|output_with_idx| {
                 ctx.idx(output_with_idx.0);
                 let processed = self.output_rules.iter().fold(output_with_idx.1, |output, rule| {
