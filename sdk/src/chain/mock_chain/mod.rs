@@ -591,8 +591,6 @@ impl Chain for MockChain {
         self.genesis_info = Some(genesis_info);
     }
 
-    // TODO: remove this and replace with proper implementation
-    // of Contract.as_code_cell()
     fn set_default_lock<A,D>(&mut self,lock: Contract<A,D>)
     where 
     D: JsonByteConversion + MolConversion + BytesConversion + Clone + Default,
@@ -600,56 +598,15 @@ impl Chain for MockChain {
 
     {
         let (outp, data) = lock.as_code_cell();
-        // let (outp,data): CellOutputWithData = {
-        //     let ref this = lock;
-        //     let data: Bytes = this.code.clone().unwrap_or_default().into_bytes();
-        //     let type_script = this.type_.clone().unwrap_or_default();
-        //     let type_script = {
-        //         if this.type_.is_some() {
-        //             Some(ckb_types::packed::Script::from(type_script))
-        //         } else {
-        //             None
-        //         }
-        //     };
-
-        //     let cell_output = CellOutputBuilder::default()
-        //         .capacity((data.len() as u64).pack())
-        //         .lock(this.lock.clone().unwrap_or_default().into())
-        //         .type_(type_script.pack())
-        //         .build();
-        //     (cell_output, data)
-        // };
-
         let outpoint = self.deploy_cell_output(data, outp);
         self.default_lock = Some(outpoint);
     }
 
     fn generate_cell_with_default_lock(&self, lock_args: crate::types::bytes::Bytes) -> Cell {
-       let script = self.build_script(&self.get_default_script_outpoint(), lock_args.clone().into()).unwrap();
+        let script = self.build_script(&self.get_default_script_outpoint(), lock_args.clone().into()).unwrap();
         let mut cell = Cell::default();
         cell.set_lock_script(script).unwrap();
         cell.set_lock_args(lock_args).unwrap();
         cell
     }
-
-    // &mut self,
-    //     capacity: usize,
-    //     args: Option<Bytes>,
-    // ) -> OutPoint {
-    //     let script = {
-    //         if let Some(args) = args {
-    //             self.build_script(&self.get_default_script_outpoint(), args)
-    //         } else {
-    //             self.build_script(&self.get_default_script_outpoint(), Bytes::default())
-    //         }
-    //     }
-    //     .unwrap();
-    //     let tx_hash = random_hash();
-    //     let out_point = OutPoint::new(tx_hash, 0);
-    //     let cell = CellOutput::new_builder()
-    //         .capacity(Capacity::bytes(capacity).expect("Data Capacity").pack())
-    //         .lock(script)
-    //         .build();
-    //     self.create_cell_with_outpoint(out_point.clone(), cell, Bytes::default());
-    //     out_point
 }
