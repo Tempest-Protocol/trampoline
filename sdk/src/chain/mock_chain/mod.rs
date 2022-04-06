@@ -106,11 +106,7 @@ impl MockChain {
     }
 
     pub fn get_default_script_outpoint(&self) -> OutPoint {
-        let always_success_data_hash = CellOutput::calc_data_hash(ALWAYS_SUCCESS.as_ref());
-        self.cells_by_data_hash
-            .get(&always_success_data_hash)
-            .unwrap()
-            .clone()
+        self.default_lock.clone().unwrap()
     }
 
     pub fn deploy_random_cell_with_default_lock(
@@ -629,6 +625,31 @@ impl Chain for MockChain {
     }
 
     fn generate_cell_with_default_lock(&self, lock_args: crate::types::bytes::Bytes) -> Cell {
-        todo!()
+       let script = self.build_script(&self.get_default_script_outpoint(), lock_args.clone().into()).unwrap();
+        let mut cell = Cell::default();
+        cell.set_lock_script(script).unwrap();
+        cell.set_lock_args(lock_args).unwrap();
+        cell
     }
+
+    // &mut self,
+    //     capacity: usize,
+    //     args: Option<Bytes>,
+    // ) -> OutPoint {
+    //     let script = {
+    //         if let Some(args) = args {
+    //             self.build_script(&self.get_default_script_outpoint(), args)
+    //         } else {
+    //             self.build_script(&self.get_default_script_outpoint(), Bytes::default())
+    //         }
+    //     }
+    //     .unwrap();
+    //     let tx_hash = random_hash();
+    //     let out_point = OutPoint::new(tx_hash, 0);
+    //     let cell = CellOutput::new_builder()
+    //         .capacity(Capacity::bytes(capacity).expect("Data Capacity").pack())
+    //         .lock(script)
+    //         .build();
+    //     self.create_cell_with_outpoint(out_point.clone(), cell, Bytes::default());
+    //     out_point
 }
