@@ -10,7 +10,7 @@ use ckb_jsonrpc_types::TransactionView as JsonTransaction;
 mod mock_chain;
 pub use mock_chain::*;
 use thiserror::Error;
-use crate::contract::{generator::TransactionProvider, Contract};
+use crate::contract::{generator::TransactionProvider, Contract, schema::{JsonByteConversion, MolConversion, BytesConversion}};
 use crate::types::{
     transaction::{CellMetaTransaction, Transaction},
     cell::{Cell, CellOutputWithData, CellError},
@@ -62,8 +62,12 @@ pub trait Chain {
 
     fn deploy_cell(&mut self, cell: &Cell) -> ChainResult<OutPoint>;
     fn genesis_info(&self) -> Option<GenesisInfo>;
-    fn set_genesis_info(&mut self, genesis_info: GenesisInfo);
-    fn set_default_lock<A,D>(&mut self,lock: Contract<A,D>);
+    fn set_genesis_info(&mut self, genesis_info: GenesisInfo) ;
+    fn set_default_lock<A,D>(&mut self,lock: Contract<A,D>)
+    where 
+    D: JsonByteConversion + MolConversion + BytesConversion + Clone + Default,
+    A: JsonByteConversion + MolConversion + BytesConversion + Clone + Default,
+    ;
     fn generate_cell_with_default_lock(&self, lock_args: Bytes) -> Cell;
 
     

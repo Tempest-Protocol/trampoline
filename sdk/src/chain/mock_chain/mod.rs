@@ -2,11 +2,13 @@ use crate::chain::*;
 use crate::contract::generator::{
     CellQuery, CellQueryAttribute, QueryProvider, QueryStatement, TransactionProvider,
 };
+use crate::contract::schema::{JsonByteConversion, MolConversion, BytesConversion, JsonConversion};
 use ckb_chain_spec::consensus::{Consensus, ConsensusBuilder};
 use ckb_error::Error as CKBError;
 use ckb_jsonrpc_types::TransactionView as JsonTransaction;
 use ckb_script::{TransactionScriptsVerifier, TxVerifyEnv};
 use ckb_traits::{CellDataProvider, HeaderProvider};
+use ckb_types::packed::CellOutputBuilder;
 use ckb_types::{
     bytes::Bytes,
     core::{
@@ -38,6 +40,7 @@ pub fn random_out_point() -> OutPoint {
 
 pub type CellOutputWithData = (CellOutput, Bytes);
 
+#[derive(Clone)]
 pub struct MockChain {
     pub cells: HashMap<OutPoint, CellOutputWithData>,
     pub outpoint_txs: HashMap<OutPoint, TransactionInfo>,
@@ -46,6 +49,8 @@ pub struct MockChain {
     pub cells_by_data_hash: HashMap<Byte32, OutPoint>,
     pub cells_by_lock_hash: HashMap<Byte32, Vec<OutPoint>>,
     pub cells_by_type_hash: HashMap<Byte32, Vec<OutPoint>>,
+    pub genesis_info: Option<GenesisInfo>,
+    pub default_lock: Option<OutPoint>,
     pub debug: bool,
     messages: Arc<Mutex<Vec<Message>>>,
 }
@@ -60,11 +65,14 @@ impl Default for MockChain {
             cells_by_data_hash: Default::default(),
             cells_by_lock_hash: Default::default(),
             cells_by_type_hash: Default::default(),
+            genesis_info: None,
+            default_lock: None,
             debug: Default::default(),
             messages: Default::default(),
         };
 
-        chain.deploy_cell_with_data(Bytes::from(ALWAYS_SUCCESS.to_vec()));
+        let default_lock = chain.deploy_cell_with_data(Bytes::from(ALWAYS_SUCCESS.to_vec()));
+        chain.default_lock = Some(default_lock);
         chain
     }
 }
@@ -562,5 +570,65 @@ impl QueryProvider for MockChainTxProvider {
             },
             _ => panic!("Compund queries currently unsupported!"),
         }
+    }
+}
+
+impl Chain for MockChain {
+    type Inner = MockChainTxProvider;
+
+    fn inner(&self) -> Self::Inner {
+        MockChainTxProvider::new(self.clone())
+    }
+
+    fn deploy_cell(&mut self, cell: &Cell) -> ChainResult<OutPoint> {
+        let (outp, data): CellOutputWithData = cell.into();
+        Ok(self.deploy_cell_output(data, outp))
+    }
+
+
+    // Check how the genesis block is deployed on actual chains
+    fn genesis_info(&self) -> Option<GenesisInfo> {
+        self.genesis_info.clone()
+    }
+
+    fn set_genesis_info(&mut self, genesis_info: GenesisInfo) {
+        self.genesis_info = Some(genesis_info);
+    }
+
+    // TODO: remove this and replace with proper implementation
+    // of Contract.as_code_cell()
+    fn set_default_lock<A,D>(&mut self,lock: Contract<A,D>)
+    where 
+    D: JsonByteConversion + MolConversion + BytesConversion + Clone + Default,
+    A: JsonByteConversion + MolConversion + BytesConversion + Clone + Default,
+
+    {
+        let (outp, data) = lock.as_code_cell();
+        // let (outp,data): CellOutputWithData = {
+        //     let ref this = lock;
+        //     let data: Bytes = this.code.clone().unwrap_or_default().into_bytes();
+        //     let type_script = this.type_.clone().unwrap_or_default();
+        //     let type_script = {
+        //         if this.type_.is_some() {
+        //             Some(ckb_types::packed::Script::from(type_script))
+        //         } else {
+        //             None
+        //         }
+        //     };
+
+        //     let cell_output = CellOutputBuilder::default()
+        //         .capacity((data.len() as u64).pack())
+        //         .lock(this.lock.clone().unwrap_or_default().into())
+        //         .type_(type_script.pack())
+        //         .build();
+        //     (cell_output, data)
+        // };
+
+        let outpoint = self.deploy_cell_output(data, outp);
+        self.default_lock = Some(outpoint);
+    }
+
+    fn generate_cell_with_default_lock(&self, lock_args: crate::types::bytes::Bytes) -> Cell {
+        todo!()
     }
 }
