@@ -6,6 +6,7 @@ use crate::contract::schema::{JsonByteConversion, MolConversion, BytesConversion
 use ckb_chain_spec::consensus::{Consensus, ConsensusBuilder};
 use ckb_error::Error as CKBError;
 use ckb_jsonrpc_types::TransactionView as JsonTransaction;
+use ckb_resource::BUNDLED;
 use ckb_script::{TransactionScriptsVerifier, TxVerifyEnv};
 use ckb_traits::{CellDataProvider, HeaderProvider};
 use ckb_types::packed::CellOutputBuilder;
@@ -23,6 +24,8 @@ use ckb_util::LinkedHashSet;
 use rand::{thread_rng, Rng};
 
 use ckb_always_success_script::ALWAYS_SUCCESS;
+use ckb_system_scripts::BUNDLED_CELL;
+
 use std::sync::{Arc, Mutex};
 use std::{cell::RefCell, collections::HashMap};
 const MAX_CYCLES: u64 = 500_0000;
@@ -71,6 +74,15 @@ impl Default for MockChain {
             messages: Default::default(),
         };
 
+        // Deploy system scripts to the chain
+        
+
+
+        
+        // let bundle = BUNDLED_CELL;always
+        
+
+        // Deploy always success script as default lock script
         let default_lock = chain.deploy_cell_with_data(Bytes::from(ALWAYS_SUCCESS.to_vec()));
         chain.default_lock = Some(default_lock);
         chain
@@ -337,7 +349,7 @@ impl MockChain {
     }
 
     /// Verify the transaction by given context (Consensus, TxVerifyEnv) in CKB-VM
-    ///
+    ///always
     /// Please see below links for more details:
     ///   - https://docs.rs/ckb-chain-spec/0.101.2/ckb_chain_spec/consensus/struct.Consensus.html
     ///   - https://docs.rs/ckb-types/0.101.2/ckb_types/core/hardfork/struct.HardForkSwitch.html
@@ -610,3 +622,68 @@ impl Chain for MockChain {
         cell
     }
 }
+
+// // Deploy system scripts from ckb-system-scripts bundled cell
+// fn genesis_event(chain: &mut MockChain) {
+//     todo!()
+//     // let bundle = BUNDLED_CELLS
+// }
+
+// for script in BUNDLED_CELL.file_names() {
+//             let data = BUNDLED_CELL.get(script).unwrap();
+//             let out_point = chain.deploy_cell_with_data(Bytes::from(data.to_vec()));
+        // }
+
+// fn deploy_system_scripts(chain: &mut MockChain, cell: &Cell) -> ChainResult<OutPoint> {
+//     let (outp, data): CellOutputWithData = cell.into();
+//     let script = chain.build_script(&outp, data.clone().into()).unwrap();
+//     let outpoint = chain.deploy_cell_output(data, outp);
+//     Ok(outpoint)
+// }
+
+struct GenesisScripts {
+        secp256k1_data: Bytes,
+        secp256k1_blake160_sighash_all: Bytes,
+        secp256k1_blake160_multisig_all: Bytes,
+        dao: Bytes,
+    }
+
+impl Default for GenesisScripts {
+    fn default() -> Self {
+        let bundle = &BUNDLED_CELL;
+        GenesisScripts {
+            secp256k1_data: Bytes::from(bundle.get("specs/cells/secp256k1_data").unwrap().to_vec()),
+            secp256k1_blake160_sighash_all: Bytes::from(bundle.get("specs/cells/secp256k1_blake160_sighash_all").unwrap().to_vec()),
+            secp256k1_blake160_multisig_all: Bytes::from(bundle.get("specs/cells/secp256k1_blake160_multisig_all").unwrap().to_vec()),
+            dao: Bytes::from(bundle.get("specs/cells/dao").unwrap().to_vec()), 
+        }
+    }
+}
+
+// Deploy every system script from a genesis script to a MockChain return a hashmap with their names and outpoints
+fn genesis_event(chain: &mut MockChain, genesis_scripts: &GenesisScripts) -> HashMap<String, OutPoint> {
+    let mut scripts = HashMap::new();
+    let secp256k1_data = chain.deploy_cell_with_data(genesis_scripts.secp256k1_data.clone());
+    scripts.insert("secp256k1_data".to_string(), secp256k1_data);
+    let secp256k1_blake160_sighash_all = chain.deploy_cell_with_data(genesis_scripts.secp256k1_blake160_sighash_all.clone());
+    scripts.insert("secp256k1_blake160_sighash_all".to_string(), secp256k1_blake160_sighash_all);
+    let secp256k1_blake160_multisig_all = chain.deploy_cell_with_data(genesis_scripts.secp256k1_blake160_multisig_all.clone());
+    scripts.insert("secp256k1_blake160_multisig_all".to_string(), secp256k1_blake160_multisig_all);
+    let dao = chain.deploy_cell_with_data(genesis_scripts.dao.clone());
+    scripts.insert("dao".to_string(), dao);
+    scripts
+}
+
+// let mut outpoints = vec![];
+//     let scripts = genesis_info;
+//     let secp256k1_data = scripts.secp256k1_data.clone();
+//     let secp256k1_blake160_sighash_all = scripts.secp256k1_blake160_sighash_all.clone();
+//     let secp256k1_blake160_multisig_all = scripts.secp256k1_blake160_multisig_all.clone();
+//     let dao = scripts.dao.clone();
+//     outpoints.push(chain.deploy_cell_with_data(secp256k1_data));
+//     outpoints.push(chain.deploy_cell_with_data(secp256k1_blake160_sighash_all));
+//     outpoints.push(chain.deploy_cell_with_data(secp256k1_blake160_multisig_all));
+//     outpoints.push(chain.deploy_cell_with_data(dao));
+//     outpoints
+
+    
