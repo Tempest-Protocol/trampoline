@@ -2,15 +2,15 @@ use crate::chain::*;
 use crate::contract::generator::{
     CellQuery, CellQueryAttribute, QueryProvider, QueryStatement, TransactionProvider,
 };
-use crate::contract::schema::{JsonByteConversion, MolConversion, BytesConversion, JsonConversion};
+use crate::contract::schema::{BytesConversion, JsonByteConversion, JsonConversion, MolConversion};
 use ckb_chain_spec::consensus::{Consensus, ConsensusBuilder};
 use ckb_error::Error as CKBError;
 use ckb_jsonrpc_types::TransactionView as JsonTransaction;
 use ckb_resource::BUNDLED;
 use ckb_script::{TransactionScriptsVerifier, TxVerifyEnv};
 use ckb_traits::{CellDataProvider, HeaderProvider};
-use ckb_types::core::{BlockView, BlockBuilder, HeaderBuilder, TransactionBuilder};
-use ckb_types::packed::{CellOutputBuilder, CellInput, ScriptOptBuilder};
+use ckb_types::core::{BlockBuilder, BlockView, HeaderBuilder, TransactionBuilder};
+use ckb_types::packed::{CellInput, CellOutputBuilder, ScriptOptBuilder};
 use ckb_types::{
     bytes::Bytes,
     core::{
@@ -76,12 +76,8 @@ impl Default for MockChain {
         };
 
         // Deploy system scripts to the chain
-        
 
-
-        
         // let bundle = BUNDLED_CELL;always
-        
 
         // Deploy always success script as default lock script
         let default_lock = chain.deploy_cell_with_data(Bytes::from(ALWAYS_SUCCESS.to_vec()));
@@ -100,10 +96,15 @@ impl MockChain {
         let out_point = OutPoint::new(tx_hash, 0);
         let cell_builder = CellOutput::new_builder()
             .capacity(Capacity::bytes(data.len()).expect("Data Capacity").pack())
-            .type_(ScriptOptBuilder::default().set(Some(Script::new_builder().code_hash(data_hash.clone()).build())).build());
+            .type_(
+                ScriptOptBuilder::default()
+                    .set(Some(
+                        Script::new_builder().code_hash(data_hash.clone()).build(),
+                    ))
+                    .build(),
+            );
 
         let cell = cell_builder.build();
-
 
         self.cells.insert(out_point.clone(), (cell, data));
         self.cells_by_data_hash.insert(data_hash, out_point.clone());
@@ -597,7 +598,6 @@ impl Chain for MockChain {
         Ok(self.deploy_cell_output(data, outp))
     }
 
-
     // Check how the genesis block is deployed on actual chains
     fn genesis_info(&self) -> Option<GenesisInfo> {
         self.genesis_info.clone()
@@ -607,11 +607,10 @@ impl Chain for MockChain {
         self.genesis_info = Some(genesis_info);
     }
 
-    fn set_default_lock<A,D>(&mut self,lock: Contract<A,D>)
-    where 
-    D: JsonByteConversion + MolConversion + BytesConversion + Clone + Default,
-    A: JsonByteConversion + MolConversion + BytesConversion + Clone + Default,
-
+    fn set_default_lock<A, D>(&mut self, lock: Contract<A, D>)
+    where
+        D: JsonByteConversion + MolConversion + BytesConversion + Clone + Default,
+        A: JsonByteConversion + MolConversion + BytesConversion + Clone + Default,
     {
         let (outp, data) = lock.as_code_cell();
         let outpoint = self.deploy_cell_output(data, outp);
@@ -619,7 +618,12 @@ impl Chain for MockChain {
     }
 
     fn generate_cell_with_default_lock(&self, lock_args: crate::types::bytes::Bytes) -> Cell {
-        let script = self.build_script(&self.get_default_script_outpoint(), lock_args.clone().into()).unwrap();
+        let script = self
+            .build_script(
+                &self.get_default_script_outpoint(),
+                lock_args.clone().into(),
+            )
+            .unwrap();
         let mut cell = Cell::default();
         cell.set_lock_script(script).unwrap();
         cell.set_lock_args(lock_args).unwrap();
@@ -636,7 +640,7 @@ impl Chain for MockChain {
 // for script in BUNDLED_CELL.file_names() {
 //             let data = BUNDLED_CELL.get(script).unwrap();
 //             let out_point = chain.deploy_cell_with_data(Bytes::from(data.to_vec()));
-        // }
+// }
 
 // fn deploy_system_scripts(chain: &mut MockChain, cell: &Cell) -> ChainResult<OutPoint> {
 //     let (outp, data): CellOutputWithData = cell.into();
@@ -646,33 +650,54 @@ impl Chain for MockChain {
 // }
 
 struct GenesisScripts {
-        secp256k1_data: Bytes,
-        secp256k1_blake160_sighash_all: Bytes,
-        secp256k1_blake160_multisig_all: Bytes,
-        dao: Bytes,
-    }
+    secp256k1_data: Bytes,
+    secp256k1_blake160_sighash_all: Bytes,
+    secp256k1_blake160_multisig_all: Bytes,
+    dao: Bytes,
+}
 
 impl Default for GenesisScripts {
     fn default() -> Self {
         let bundle = &BUNDLED_CELL;
         GenesisScripts {
             secp256k1_data: Bytes::from(bundle.get("specs/cells/secp256k1_data").unwrap().to_vec()),
-            secp256k1_blake160_sighash_all: Bytes::from(bundle.get("specs/cells/secp256k1_blake160_sighash_all").unwrap().to_vec()),
-            secp256k1_blake160_multisig_all: Bytes::from(bundle.get("specs/cells/secp256k1_blake160_multisig_all").unwrap().to_vec()),
-            dao: Bytes::from(bundle.get("specs/cells/dao").unwrap().to_vec()), 
+            secp256k1_blake160_sighash_all: Bytes::from(
+                bundle
+                    .get("specs/cells/secp256k1_blake160_sighash_all")
+                    .unwrap()
+                    .to_vec(),
+            ),
+            secp256k1_blake160_multisig_all: Bytes::from(
+                bundle
+                    .get("specs/cells/secp256k1_blake160_multisig_all")
+                    .unwrap()
+                    .to_vec(),
+            ),
+            dao: Bytes::from(bundle.get("specs/cells/dao").unwrap().to_vec()),
         }
     }
 }
 
 // Deploy every system script from a genesis script to a MockChain return a hashmap with their names and outpoints
-fn genesis_event(chain: &mut MockChain, genesis_scripts: &GenesisScripts) -> HashMap<String, OutPoint> {
+fn genesis_event(
+    chain: &mut MockChain,
+    genesis_scripts: &GenesisScripts,
+) -> HashMap<String, OutPoint> {
     let mut scripts = HashMap::new();
     let secp256k1_data = chain.deploy_cell_with_data(genesis_scripts.secp256k1_data.clone());
     scripts.insert("secp256k1_data".to_string(), secp256k1_data);
-    let secp256k1_blake160_sighash_all = chain.deploy_cell_with_data(genesis_scripts.secp256k1_blake160_sighash_all.clone());
-    scripts.insert("secp256k1_blake160_sighash_all".to_string(), secp256k1_blake160_sighash_all);
-    let secp256k1_blake160_multisig_all = chain.deploy_cell_with_data(genesis_scripts.secp256k1_blake160_multisig_all.clone());
-    scripts.insert("secp256k1_blake160_multisig_all".to_string(), secp256k1_blake160_multisig_all);
+    let secp256k1_blake160_sighash_all =
+        chain.deploy_cell_with_data(genesis_scripts.secp256k1_blake160_sighash_all.clone());
+    scripts.insert(
+        "secp256k1_blake160_sighash_all".to_string(),
+        secp256k1_blake160_sighash_all,
+    );
+    let secp256k1_blake160_multisig_all =
+        chain.deploy_cell_with_data(genesis_scripts.secp256k1_blake160_multisig_all.clone());
+    scripts.insert(
+        "secp256k1_blake160_multisig_all".to_string(),
+        secp256k1_blake160_multisig_all,
+    );
     let dao = chain.deploy_cell_with_data(genesis_scripts.dao.clone());
     scripts.insert("dao".to_string(), dao);
     scripts
@@ -683,14 +708,20 @@ fn genesis_block_from_chain(chain: &mut MockChain) -> BlockView {
 
     let tx = TransactionBuilder::default();
 
-    let secp256k1_data_code_hash_bytes = Byte32::from_slice(&ckb_system_scripts::CODE_HASH_SECP256K1_DATA).unwrap();
-    let secp256k1_data_outpoint = chain.get_cell_by_data_hash(&secp256k1_data_code_hash_bytes).unwrap();
+    let secp256k1_data_code_hash_bytes =
+        Byte32::from_slice(&ckb_system_scripts::CODE_HASH_SECP256K1_DATA).unwrap();
+    let secp256k1_data_outpoint = chain
+        .get_cell_by_data_hash(&secp256k1_data_code_hash_bytes)
+        .unwrap();
     let secp256k1_data = chain.get_cell(&secp256k1_data_outpoint).unwrap();
     let tx = tx.output(secp256k1_data.0.clone());
     let tx = tx.output_data(secp256k1_data.1.clone().pack());
 
-    let blake_sighash_all_code_hash_bytes = Byte32::from_slice(&ckb_system_scripts::CODE_HASH_SECP256K1_BLAKE160_SIGHASH_ALL).unwrap();
-    let blake_sighash_all_outpoint = chain.get_cell_by_data_hash(&blake_sighash_all_code_hash_bytes).unwrap();
+    let blake_sighash_all_code_hash_bytes =
+        Byte32::from_slice(&ckb_system_scripts::CODE_HASH_SECP256K1_BLAKE160_SIGHASH_ALL).unwrap();
+    let blake_sighash_all_outpoint = chain
+        .get_cell_by_data_hash(&blake_sighash_all_code_hash_bytes)
+        .unwrap();
     let blake_sighash_all = chain.get_cell(&blake_sighash_all_outpoint).unwrap();
     let tx = tx.output(blake_sighash_all.0.clone());
     let tx = tx.output_data(blake_sighash_all.1.clone().pack());
@@ -707,8 +738,11 @@ fn genesis_block_from_chain(chain: &mut MockChain) -> BlockView {
     let tx = tx.output(random_cell.0.clone());
     let tx = tx.output_data(random_cell.1.clone().pack());
 
-    let blake_multisig_code_hash_bytes = Byte32::from_slice(&ckb_system_scripts::CODE_HASH_SECP256K1_BLAKE160_MULTISIG_ALL).unwrap();
-    let blake_multisig_outpoint = chain.get_cell_by_data_hash(&blake_multisig_code_hash_bytes).unwrap();
+    let blake_multisig_code_hash_bytes =
+        Byte32::from_slice(&ckb_system_scripts::CODE_HASH_SECP256K1_BLAKE160_MULTISIG_ALL).unwrap();
+    let blake_multisig_outpoint = chain
+        .get_cell_by_data_hash(&blake_multisig_code_hash_bytes)
+        .unwrap();
     let blake_multisig = chain.get_cell(&blake_multisig_outpoint).unwrap();
     let tx = tx.output(blake_multisig.0.clone());
     let tx = tx.output_data(blake_multisig.1.clone().pack());
@@ -722,7 +756,7 @@ fn genesis_block_from_chain(chain: &mut MockChain) -> BlockView {
 
 //     // Generate genesis block
 //     let mut block = BlockBuilder::default();
-    
+
 //     // Generate genesis tx outputs
 //     let mut tx = TransactionBuilder::default();
 //     let secp256k1_data = chain.get_cell(scripts.get("secp256k1_data").unwrap()).unwrap();
@@ -748,14 +782,12 @@ fn genesis_block_from_chain(chain: &mut MockChain) -> BlockView {
 
 //     block.transaction(tx.build());    // tx.input()
 
-
 //     let finished_block = &block.build();
 
-    // GenesisInfo::from_block(&finished_block).expect("Failed to generate genesis info from block")
+// GenesisInfo::from_block(&finished_block).expect("Failed to generate genesis info from block")
 
 //     // block.transaction(tx);
 // }
-
 
 #[cfg(test)]
 mod tests {
@@ -763,7 +795,7 @@ mod tests {
 
     use super::*;
 
-    fn mockchain_setup() -> (mock_chain::MockChain, ckb_types::core::BlockView){
+    fn mockchain_setup() -> (mock_chain::MockChain, ckb_types::core::BlockView) {
         // Create a new mockchain
         let mut chain = MockChain::default();
 
@@ -786,7 +818,6 @@ mod tests {
         let genesis_info = GenesisInfo::from_block(&genesis_block);
 
         assert!(genesis_info.is_ok());
-
     }
 
     #[test]
@@ -801,34 +832,45 @@ mod tests {
 
         // Get cell by location
         let location = crate::types::constants::DAO_OUTPUT_LOC; // TX 0 OUTP 2
-        let cell_by_location_in_block = genesis_block.transactions()[location.0].outputs().get(location.1).unwrap();
+        let cell_by_location_in_block = genesis_block.transactions()[location.0]
+            .outputs()
+            .get(location.1)
+            .unwrap();
 
         // Compare the two
         assert_eq!(cell_by_hash, cell_by_location_in_block);
     }
-
 
     #[test]
     fn test_genesis_block_has_secp_multisig_cell() {
         let (mut chain, genesis_block) = mockchain_setup();
 
         // Get the cell by hash
-        let multisig_code_hash_bytes = Byte32::from_slice(&ckb_system_scripts::CODE_HASH_SECP256K1_BLAKE160_MULTISIG_ALL).unwrap();
-        let multisig_outpoint = chain.get_cell_by_data_hash(&multisig_code_hash_bytes).unwrap();
+        let multisig_code_hash_bytes =
+            Byte32::from_slice(&ckb_system_scripts::CODE_HASH_SECP256K1_BLAKE160_MULTISIG_ALL)
+                .unwrap();
+        let multisig_outpoint = chain
+            .get_cell_by_data_hash(&multisig_code_hash_bytes)
+            .unwrap();
         let multisig_cell = chain.get_cell(&multisig_outpoint).unwrap();
         let cell_by_hash = multisig_cell.0;
 
         // Get cell by location
         let location = crate::types::constants::MULTISIG_OUTPUT_LOC; // TX 0 OUTP 4
-        let cell_by_location_in_block = genesis_block.transactions()[location.0].outputs().get(location.1).unwrap();
+        let cell_by_location_in_block = genesis_block.transactions()[location.0]
+            .outputs()
+            .get(location.1)
+            .unwrap();
 
         // Compare the two
         assert_eq!(cell_by_hash, cell_by_location_in_block);
 
         // Check the cell's data
         let data_hash = CellOutput::calc_data_hash(&multisig_cell.1);
-        assert_eq!(ckb_resource::CODE_HASH_SECP256K1_BLAKE160_MULTISIG_ALL.pack(), data_hash);
-
+        assert_eq!(
+            ckb_resource::CODE_HASH_SECP256K1_BLAKE160_MULTISIG_ALL.pack(),
+            data_hash
+        );
     }
 
     #[test]
@@ -836,12 +878,20 @@ mod tests {
         let (chain, genesis_block) = mockchain_setup();
 
         // Get the cell by hash
-        let secp_sighash_outp = chain.get_cell_by_data_hash(&Byte32::from_slice(&ckb_system_scripts::CODE_HASH_SECP256K1_BLAKE160_SIGHASH_ALL).unwrap()).unwrap();
+        let secp_sighash_outp = chain
+            .get_cell_by_data_hash(
+                &Byte32::from_slice(&ckb_system_scripts::CODE_HASH_SECP256K1_BLAKE160_SIGHASH_ALL)
+                    .unwrap(),
+            )
+            .unwrap();
         let secp_sighash_cell = chain.get_cell(&secp_sighash_outp).unwrap();
         let cell_by_hash = secp_sighash_cell.0;
 
         let location = crate::types::constants::SIGHASH_OUTPUT_LOC; // TX 0 OUTP 1
-        let cell_by_location_in_block = genesis_block.transactions()[location.0].outputs().get(location.1).unwrap();
+        let cell_by_location_in_block = genesis_block.transactions()[location.0]
+            .outputs()
+            .get(location.1)
+            .unwrap();
 
         assert_eq!(cell_by_location_in_block, cell_by_hash);
     }
@@ -880,28 +930,43 @@ mod tests {
         let dao_cell = chain.get_cell_by_data_hash(&dao_code_hash_bytes).unwrap();
 
         // Setup blake_sighash_all cell
-        let secp256_sighash_all_code_hash_bytes = Byte32::from_slice(&ckb_system_scripts::CODE_HASH_SECP256K1_BLAKE160_SIGHASH_ALL).unwrap();
-        let secp256_sighash_all_cell = chain.get_cell_by_data_hash(&secp256_sighash_all_code_hash_bytes).unwrap();
+        let secp256_sighash_all_code_hash_bytes =
+            Byte32::from_slice(&ckb_system_scripts::CODE_HASH_SECP256K1_BLAKE160_SIGHASH_ALL)
+                .unwrap();
+        let secp256_sighash_all_cell = chain
+            .get_cell_by_data_hash(&secp256_sighash_all_code_hash_bytes)
+            .unwrap();
 
         // Setup blake_multisig cell
-        let secp256_multisig_code_hash_bytes = Byte32::from_slice(&ckb_system_scripts::CODE_HASH_SECP256K1_BLAKE160_MULTISIG_ALL).unwrap();
-        let secp256_multisig_cell = chain.get_cell_by_data_hash(&secp256_multisig_code_hash_bytes).unwrap();
-        
+        let secp256_multisig_code_hash_bytes =
+            Byte32::from_slice(&ckb_system_scripts::CODE_HASH_SECP256K1_BLAKE160_MULTISIG_ALL)
+                .unwrap();
+        let secp256_multisig_cell = chain
+            .get_cell_by_data_hash(&secp256_multisig_code_hash_bytes)
+            .unwrap();
+
         // Setup blake_data cell
-        let secp256_data_code_hash_bytes = Byte32::from_slice(&ckb_system_scripts::CODE_HASH_SECP256K1_DATA).unwrap();
-        let secp256_data_cell = chain.get_cell_by_data_hash(&secp256_data_code_hash_bytes).unwrap();
+        let secp256_data_code_hash_bytes =
+            Byte32::from_slice(&ckb_system_scripts::CODE_HASH_SECP256K1_DATA).unwrap();
+        let secp256_data_cell = chain
+            .get_cell_by_data_hash(&secp256_data_code_hash_bytes)
+            .unwrap();
 
         assert_eq!(&dao_cell, scripts.get("dao").unwrap());
-        assert_eq!(&secp256_sighash_all_cell, scripts.get("secp256k1_blake160_sighash_all").unwrap());
-        assert_eq!(&secp256_multisig_cell, scripts.get("secp256k1_blake160_multisig_all").unwrap());
+        assert_eq!(
+            &secp256_sighash_all_cell,
+            scripts.get("secp256k1_blake160_sighash_all").unwrap()
+        );
+        assert_eq!(
+            &secp256_multisig_cell,
+            scripts.get("secp256k1_blake160_multisig_all").unwrap()
+        );
         assert_eq!(&secp256_data_cell, scripts.get("secp256k1_data").unwrap());
-
     }
 
     #[test]
     // Test genesis_info generation
     fn test_genesis_event_deploys_dao_cell() {
-        
         let mut chain = MockChain::default();
 
         // Create default genesis scripts
@@ -916,7 +981,4 @@ mod tests {
 
         assert_eq!(&dao_cell, scripts.get("dao").unwrap());
     }
-
 }
-
-
