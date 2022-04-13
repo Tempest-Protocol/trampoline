@@ -52,6 +52,10 @@ impl Script {
     pub fn set_args(&mut self, args: impl Into<Bytes>) {
         self.args = args.into();
     }
+
+    pub fn set_code_hash(&mut self, code_hash: H256) {
+        self.code_hash = code_hash;
+    }
     pub fn size_bytes(&self) -> usize {
         // Args bytes size + code_hash + hash_type (which is one byte)
         // script_hash is not included in this calculation since it is not present

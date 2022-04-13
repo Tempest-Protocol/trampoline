@@ -19,6 +19,7 @@ use ckb_types::{
 };
 
 
+
 use ckb_jsonrpc_types::{CellOutput as JsonCellOutput, 
     CellDep as JsonCellDep, 
     CellData, 
@@ -30,7 +31,9 @@ use ckb_jsonrpc_types::{CellOutput as JsonCellOutput,
     OutPoint as JsonOutPoint,
     
 };
+use std::io::Error as IoError;
 use thiserror::Error;
+
 use super::script::{Script, ScriptError};
 use super::bytes::{Bytes, BytesError};
 
@@ -46,6 +49,8 @@ pub enum CellError {
     ScriptError(#[from] ScriptError),
     #[error(transparent)]
     BytesError(#[from] BytesError),
+    #[error(transparent)]
+    IoError(#[from] IoError),
     #[error("Type script is currently None")]
     MissingTypeScript,
 }
@@ -113,6 +118,13 @@ impl Cell {
         }
     }
 
+    pub fn type_script(&self) -> CellResult<Option<Script>> {
+        Ok(self.type_script.clone())
+    }
+
+    pub fn lock_script(&self) -> CellResult<Script> {
+        Ok(self.lock_script.clone())
+    }
     pub fn capacity(&self) -> Capacity {
         self.capacity
     }

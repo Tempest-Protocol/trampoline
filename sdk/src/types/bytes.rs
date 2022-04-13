@@ -4,6 +4,7 @@ use ckb_types::packed::Bytes as PackedBytes;
 use ckb_jsonrpc_types::JsonBytes;
 use ckb_types::{H256, core::{Capacity, CapacityError}};
 use ckb_hash::blake2b_256;
+use crate::contract::schema::{SchemaPrimitiveType, BytesConversion};
 use thiserror::Error;
 // use molecule::bytes::Bytes as MolBytes; // This is equivalent to CkBytes when in std mode
 
@@ -112,3 +113,12 @@ impl From<&Bytes> for JsonBytes {
     }
 }
 
+impl<T, M> From<SchemaPrimitiveType<T,M>> for Bytes 
+where
+    M: Entity + Unpack<T>,
+    T: Pack<M>,
+{
+    fn from(schema_obj: SchemaPrimitiveType<T,M>) -> Self {
+        schema_obj.to_bytes().into()
+    }
+}
