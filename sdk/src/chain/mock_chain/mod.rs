@@ -9,7 +9,8 @@ use ckb_jsonrpc_types::TransactionView as JsonTransaction;
 use ckb_resource::BUNDLED;
 use ckb_script::{TransactionScriptsVerifier, TxVerifyEnv};
 use ckb_traits::{CellDataProvider, HeaderProvider};
-use ckb_types::packed::CellOutputBuilder;
+use ckb_types::core::{BlockView, BlockBuilder, HeaderBuilder, TransactionBuilder};
+use ckb_types::packed::{CellOutputBuilder, CellInput};
 use ckb_types::{
     bytes::Bytes,
     core::{
@@ -674,16 +675,162 @@ fn genesis_event(chain: &mut MockChain, genesis_scripts: &GenesisScripts) -> Has
     scripts
 }
 
-// let mut outpoints = vec![];
-//     let scripts = genesis_info;
-//     let secp256k1_data = scripts.secp256k1_data.clone();
-//     let secp256k1_blake160_sighash_all = scripts.secp256k1_blake160_sighash_all.clone();
-//     let secp256k1_blake160_multisig_all = scripts.secp256k1_blake160_multisig_all.clone();
-//     let dao = scripts.dao.clone();
-//     outpoints.push(chain.deploy_cell_with_data(secp256k1_data));
-//     outpoints.push(chain.deploy_cell_with_data(secp256k1_blake160_sighash_all));
-//     outpoints.push(chain.deploy_cell_with_data(secp256k1_blake160_multisig_all));
-//     outpoints.push(chain.deploy_cell_with_data(dao));
-//     outpoints
+fn genesis_block_from_chain(chain: &MockChain) -> BlockView {
+    let block: BlockBuilder = BlockBuilder::default();
+
+    let tx = TransactionBuilder::default();
+
+    let secp256k1_data_code_hash_bytes = Byte32::from_slice(&ckb_system_scripts::CODE_HASH_SECP256K1_DATA).unwrap();
+    let secp256k1_data_outpoint = chain.get_cell_by_data_hash(&secp256k1_data_code_hash_bytes).unwrap();
+    let secp256k1_data = chain.get_cell(&secp256k1_data_outpoint).unwrap();
+    let tx = tx.output(secp256k1_data.0);
+
+    let blake_sighash_all_code_hash_bytes = Byte32::from_slice(&ckb_system_scripts::CODE_HASH_SECP256K1_BLAKE160_SIGHASH_ALL).unwrap();
+    let blake_sighash_all_outpoint = chain.get_cell_by_data_hash(&blake_sighash_all_code_hash_bytes).unwrap();
+    let blake_sighash_all = chain.get_cell(&blake_sighash_all_outpoint).unwrap();
+    let tx = tx.output(blake_sighash_all.0);
+
+    let blake_multisig_code_hash_bytes = Byte32::from_slice(&ckb_system_scripts::CODE_HASH_SECP256K1_BLAKE160_MULTISIG_ALL).unwrap();
+    let blake_multisig_outpoint = chain.get_cell_by_data_hash(&blake_multisig_code_hash_bytes).unwrap();
+    let blake_multisig = chain.get_cell(&blake_multisig_outpoint).unwrap();
+    let tx = tx.output(blake_multisig.0);
+
+    let dao_code_hash_bytes = Byte32::from_slice(&ckb_system_scripts::CODE_HASH_DAO).unwrap();
+    let dao_outpoint = chain.get_cell_by_data_hash(&dao_code_hash_bytes).unwrap();
+    let dao = chain.get_cell(&dao_outpoint).unwrap();
+    let tx = tx.output(dao.0);
 
     
+
+    let block = block.transaction(tx.build());
+
+    block.build()
+}
+
+// fn generate_genesis_info(scripts: HashMap<String, OutPoint>, chain: &mut MockChain) -> GenesisInfo {
+
+//     // Generate genesis block
+//     let mut block = BlockBuilder::default();
+    
+//     // Generate genesis tx outputs
+//     let mut tx = TransactionBuilder::default();
+//     let secp256k1_data = chain.get_cell(scripts.get("secp256k1_data").unwrap()).unwrap();
+//     tx.output(secp256k1_data.0);
+//     let secp256k1_blake160_sighash_all = chain.get_cell(scripts.get("secp256k1_blake160_sighash_all").unwrap()).unwrap();
+//     tx.output(secp256k1_blake160_sighash_all.0);
+//     let secp256k1_blake160_multisig_all = chain.get_cell(scripts.get("secp256k1_blake160_multisig_all").unwrap()).unwrap();
+//     tx.output(secp256k1_blake160_multisig_all.0);
+//     let dao = chain.get_cell(scripts.get("dao").unwrap()).unwrap();
+//     tx.output(dao.0);
+
+//     // Generate input
+//     let input_cell_outp = chain.deploy_random_cell_with_default_lock(20000, None);
+//     let input_cell = chain.get_cell(&input_cell_outp).unwrap();
+
+//     // Generate CellInput from input_cell
+//     let input = CellInput::new_builder()
+//         .previous_output(input_cell_outp)
+//         .build();
+
+//     // Add generated input
+//     tx.input(input);
+
+//     block.transaction(tx.build());    // tx.input()
+
+
+//     let finished_block = &block.build();
+
+    // GenesisInfo::from_block(&finished_block).expect("Failed to generate genesis info from block")
+
+//     // block.transaction(tx);
+// }
+
+
+#[cfg(test)]
+mod tests {
+    use std::hash::Hash;
+
+    use super::*;
+    use test_case::test_case;
+
+    
+    #[test]
+    fn test_create_genesisinfo_from_block() {
+        // Create a new mockchain
+        let mut chain = MockChain::default();
+
+        // Create default genesis scripts
+        let genesis_scripts = GenesisScripts::default();
+
+        // Run genesis event on the mockchain with the scripts
+        let scripts = genesis_event(&mut chain, &genesis_scripts);
+
+        // Generate genesis block
+        let genesis_block = genesis_block_from_chain(&chain);
+
+        let secp256k1_data_code_hash_bytes = Byte32::from_slice(&ckb_system_scripts::CODE_HASH_SECP256K1_DATA).unwrap();
+        let secp256k1_data_outpoint = chain.get_cell_by_data_hash(&secp256k1_data_code_hash_bytes).unwrap();
+        let secp256k1_data = chain.get_cell(&secp256k1_data_outpoint).unwrap();
+
+        // Check if secp data is included
+        assert_eq!(genesis_block.transactions()[0].outputs().get(0).unwrap(), secp256k1_data.0)
+
+        
+    }
+
+    #[test]
+    fn test_genesis_event_deploys_all_system_script() {
+        // Create a new mockchain
+        let mut chain = MockChain::default();
+
+        // Create default genesis scripts
+        let genesis_scripts = GenesisScripts::default();
+
+        // Run genesis event on the mockchain with the scripts
+        let scripts = genesis_event(&mut chain, &genesis_scripts);
+
+        // Setup DAO cell
+        let dao_code_hash_bytes = Byte32::from_slice(&ckb_system_scripts::CODE_HASH_DAO).unwrap();
+        let dao_cell = chain.get_cell_by_data_hash(&dao_code_hash_bytes).unwrap();
+
+        // Setup blake_sighash_all cell
+        let secp256_sighash_all_code_hash_bytes = Byte32::from_slice(&ckb_system_scripts::CODE_HASH_SECP256K1_BLAKE160_SIGHASH_ALL).unwrap();
+        let secp256_sighash_all_cell = chain.get_cell_by_data_hash(&secp256_sighash_all_code_hash_bytes).unwrap();
+
+        // Setup blake_multisig cell
+        let secp256_multisig_code_hash_bytes = Byte32::from_slice(&ckb_system_scripts::CODE_HASH_SECP256K1_BLAKE160_MULTISIG_ALL).unwrap();
+        let secp256_multisig_cell = chain.get_cell_by_data_hash(&secp256_multisig_code_hash_bytes).unwrap();
+        
+        // Setup blake_data cell
+        let secp256_data_code_hash_bytes = Byte32::from_slice(&ckb_system_scripts::CODE_HASH_SECP256K1_DATA).unwrap();
+        let secp256_data_cell = chain.get_cell_by_data_hash(&secp256_data_code_hash_bytes).unwrap();
+
+        assert_eq!(&dao_cell, scripts.get("dao").unwrap());
+        assert_eq!(&secp256_sighash_all_cell, scripts.get("secp256k1_blake160_sighash_all").unwrap());
+        assert_eq!(&secp256_multisig_cell, scripts.get("secp256k1_blake160_multisig_all").unwrap());
+        assert_eq!(&secp256_data_cell, scripts.get("secp256k1_data").unwrap());
+
+    }
+
+    #[test]
+    // Test genesis_info generation
+    fn test_genesis_event_deploys_dao_cell() {
+        
+        let mut chain = MockChain::default();
+
+        // Create default genesis scripts
+        let genesis_scripts = GenesisScripts::default();
+
+        // Run genesis event on the mockchain with the scripts
+        let scripts = genesis_event(&mut chain, &genesis_scripts);
+
+        // Get dao cell from the chain
+        let dao_code_hash_bytes = Byte32::from_slice(&ckb_system_scripts::CODE_HASH_DAO).unwrap();
+        let dao_cell = chain.get_cell_by_data_hash(&dao_code_hash_bytes).unwrap();
+
+        assert_eq!(&dao_cell, scripts.get("dao").unwrap());
+    }
+
+}
+
+
