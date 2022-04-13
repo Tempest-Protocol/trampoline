@@ -44,7 +44,7 @@ pub fn random_out_point() -> OutPoint {
 
 pub type CellOutputWithData = (CellOutput, Bytes);
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct MockChain {
     pub cells: HashMap<OutPoint, CellOutputWithData>,
     pub outpoint_txs: HashMap<OutPoint, TransactionInfo>,
@@ -83,6 +83,30 @@ impl Default for MockChain {
         let default_lock = chain.deploy_cell_with_data(Bytes::from(ALWAYS_SUCCESS.to_vec()));
         chain.default_lock = Some(default_lock);
         chain
+    }
+}
+
+impl PartialEq for MockChain {
+    // Simple equality check for testing purposes
+    // Curves around genesis info not implementing PartialEq
+    fn eq(&self, other: &Self) -> bool {
+        self.cells == other.cells &&
+        self.default_lock == other.default_lock &&
+        self.outpoint_txs == other.outpoint_txs &&
+        self.headers == other.headers &&
+        self.epoches == other.epoches &&
+        self.cells_by_data_hash == other.cells_by_data_hash &&
+        self.cells_by_lock_hash == other.cells_by_lock_hash &&
+        self.cells_by_type_hash == other.cells_by_type_hash &&  
+        self.debug == other.debug &&
+
+        // Compare GenesisInfo
+        self.genesis_info.as_ref().unwrap().sighash_data_hash() == other.genesis_info.as_ref().unwrap().sighash_data_hash() &&
+        self.genesis_info.as_ref().unwrap().sighash_type_hash() == other.genesis_info.as_ref().unwrap().sighash_type_hash() &&
+        self.genesis_info.as_ref().unwrap().multisig_data_hash() == other.genesis_info.as_ref().unwrap().multisig_data_hash() &&
+        self.genesis_info.as_ref().unwrap().multisig_type_hash() == other.genesis_info.as_ref().unwrap().multisig_type_hash() &&
+        self.genesis_info.as_ref().unwrap().dao_data_hash() == other.genesis_info.as_ref().unwrap().dao_data_hash() &&
+        self.genesis_info.as_ref().unwrap().dao_type_hash() == other.genesis_info.as_ref().unwrap().dao_type_hash()
     }
 }
 
@@ -809,6 +833,22 @@ mod tests {
         let genesis_block = genesis_block_from_chain(&mut chain);
 
         (chain, genesis_block)
+    }
+
+    #[test]
+    fn genesis_event_changes_nothing_if_chain_has_genesisinfo() {
+        // Create a new mockchain
+        let chain_1 = MockChain::default();
+
+        // Create copy
+        let mut chain_2 = chain_1.clone();
+
+        // Run genesis event on copy
+        genesis_event(&mut chain_2, &GenesisScripts::default());
+        
+
+        // Check if they are equal
+        assert_eq!(chain_1, chain_2);
     }
 
     #[test]
