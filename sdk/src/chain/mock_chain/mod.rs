@@ -773,7 +773,9 @@ mod tests {
         let secp256k1_data = chain.get_cell(&secp256k1_data_outpoint).unwrap();
 
         // Check if secp data is included
-        assert_eq!(genesis_block.transactions()[0].outputs().get(0).unwrap(), secp256k1_data.0)
+
+        let location = crate::types::constants::SIGHASH_OUTPUT_LOC;
+        assert_eq!(genesis_block.transactions()[location.0].outputs().get(location.1).unwrap(), secp256k1_data.0)
 
         
     }
