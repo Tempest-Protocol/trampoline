@@ -10,7 +10,7 @@ use ckb_resource::BUNDLED;
 use ckb_script::{TransactionScriptsVerifier, TxVerifyEnv};
 use ckb_traits::{CellDataProvider, HeaderProvider};
 use ckb_types::core::{BlockView, BlockBuilder, HeaderBuilder, TransactionBuilder};
-use ckb_types::packed::{CellOutputBuilder, CellInput};
+use ckb_types::packed::{CellOutputBuilder, CellInput, ScriptOptBuilder};
 use ckb_types::{
     bytes::Bytes,
     core::{
@@ -98,9 +98,12 @@ impl MockChain {
         }
         let tx_hash = random_hash();
         let out_point = OutPoint::new(tx_hash, 0);
-        let cell = CellOutput::new_builder()
+        let cell_builder = CellOutput::new_builder()
             .capacity(Capacity::bytes(data.len()).expect("Data Capacity").pack())
-            .build();
+            .type_(ScriptOptBuilder::default().set(Some(Script::new_builder().code_hash(data_hash.clone()).build())).build());
+
+        let cell = cell_builder.build();
+
 
         self.cells.insert(out_point.clone(), (cell, data));
         self.cells_by_data_hash.insert(data_hash, out_point.clone());
@@ -683,31 +686,32 @@ fn genesis_block_from_chain(chain: &mut MockChain) -> BlockView {
     let secp256k1_data_code_hash_bytes = Byte32::from_slice(&ckb_system_scripts::CODE_HASH_SECP256K1_DATA).unwrap();
     let secp256k1_data_outpoint = chain.get_cell_by_data_hash(&secp256k1_data_code_hash_bytes).unwrap();
     let secp256k1_data = chain.get_cell(&secp256k1_data_outpoint).unwrap();
-    let tx = tx.output(secp256k1_data.0);
+    let tx = tx.output(secp256k1_data.0.clone());
+    let tx = tx.output_data(secp256k1_data.1.clone().pack());
 
     let blake_sighash_all_code_hash_bytes = Byte32::from_slice(&ckb_system_scripts::CODE_HASH_SECP256K1_BLAKE160_SIGHASH_ALL).unwrap();
     let blake_sighash_all_outpoint = chain.get_cell_by_data_hash(&blake_sighash_all_code_hash_bytes).unwrap();
     let blake_sighash_all = chain.get_cell(&blake_sighash_all_outpoint).unwrap();
-    let tx = tx.output(blake_sighash_all.0);
+    let tx = tx.output(blake_sighash_all.0.clone());
+    let tx = tx.output_data(blake_sighash_all.1.clone().pack());
 
     let dao_code_hash_bytes = Byte32::from_slice(&ckb_system_scripts::CODE_HASH_DAO).unwrap();
     let dao_outpoint = chain.get_cell_by_data_hash(&dao_code_hash_bytes).unwrap();
     let dao = chain.get_cell(&dao_outpoint).unwrap();
-    let tx = tx.output(dao.0);
+    let tx = tx.output(dao.0.clone());
+    let tx = tx.output_data(dao.1.clone().pack());
 
     // Some cell without data or scripts to complete the genesis block and respect the script order
     let random_cell_outpoint = chain.deploy_random_cell_with_default_lock(100000, None);
     let random_cell = chain.get_cell(&random_cell_outpoint).unwrap();
-    let tx = tx.output(random_cell.0);
+    let tx = tx.output(random_cell.0.clone());
+    let tx = tx.output_data(random_cell.1.clone().pack());
 
     let blake_multisig_code_hash_bytes = Byte32::from_slice(&ckb_system_scripts::CODE_HASH_SECP256K1_BLAKE160_MULTISIG_ALL).unwrap();
     let blake_multisig_outpoint = chain.get_cell_by_data_hash(&blake_multisig_code_hash_bytes).unwrap();
     let blake_multisig = chain.get_cell(&blake_multisig_outpoint).unwrap();
-    let tx = tx.output(blake_multisig.0);
-
-    
-
-    
+    let tx = tx.output(blake_multisig.0.clone());
+    let tx = tx.output_data(blake_multisig.1.clone().pack());
 
     let block = block.transaction(tx.build());
 
@@ -776,6 +780,16 @@ mod tests {
     }
 
     #[test]
+    fn genesis_info_from_genesis_block_returns_ok() {
+        let (chain, genesis_block) = mockchain_setup();
+
+        let genesis_info = GenesisInfo::from_block(&genesis_block);
+
+        assert!(genesis_info.is_ok());
+
+    }
+
+    #[test]
     fn test_genesis_block_has_dao_cell() {
         let (mut chain, genesis_block) = mockchain_setup();
 
@@ -799,10 +813,10 @@ mod tests {
         let (mut chain, genesis_block) = mockchain_setup();
 
         // Get the cell by hash
-        let dao_code_hash_bytes = Byte32::from_slice(&ckb_system_scripts::CODE_HASH_SECP256K1_BLAKE160_MULTISIG_ALL).unwrap();
-        let dao_outpoint = chain.get_cell_by_data_hash(&dao_code_hash_bytes).unwrap();
-        let dao_cell = chain.get_cell(&dao_outpoint).unwrap();
-        let cell_by_hash = dao_cell.0;
+        let multisig_code_hash_bytes = Byte32::from_slice(&ckb_system_scripts::CODE_HASH_SECP256K1_BLAKE160_MULTISIG_ALL).unwrap();
+        let multisig_outpoint = chain.get_cell_by_data_hash(&multisig_code_hash_bytes).unwrap();
+        let multisig_cell = chain.get_cell(&multisig_outpoint).unwrap();
+        let cell_by_hash = multisig_cell.0;
 
         // Get cell by location
         let location = crate::types::constants::MULTISIG_OUTPUT_LOC; // TX 0 OUTP 4
@@ -810,6 +824,11 @@ mod tests {
 
         // Compare the two
         assert_eq!(cell_by_hash, cell_by_location_in_block);
+
+        // Check the cell's data
+        let data_hash = CellOutput::calc_data_hash(&multisig_cell.1);
+        assert_eq!(ckb_resource::CODE_HASH_SECP256K1_BLAKE160_MULTISIG_ALL.pack(), data_hash);
+
     }
 
     #[test]
