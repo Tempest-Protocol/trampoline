@@ -776,14 +776,33 @@ mod tests {
     }
 
     #[test]
+    fn test_genesis_block_has_dao_cell() {
+        let (mut chain, genesis_block) = mockchain_setup();
+
+        // Get the cell by hash
+        let dao_code_hash_bytes = Byte32::from_slice(&ckb_system_scripts::CODE_HASH_DAO).unwrap();
+        let dao_outpoint = chain.get_cell_by_data_hash(&dao_code_hash_bytes).unwrap();
+        let dao_cell = chain.get_cell(&dao_outpoint).unwrap();
+        let cell_by_hash = dao_cell.0;
+
+        // Get cell by location
+        let location = crate::types::constants::DAO_OUTPUT_LOC; // TX 0 OUTP 2
+        let cell_by_location_in_block = genesis_block.transactions()[location.0].outputs().get(location.1).unwrap();
+
+        // Compare the two
+        assert_eq!(cell_by_hash, cell_by_location_in_block);
+    }
+
+
+    #[test]
     fn test_genesis_block_has_secp_multisig_cell() {
         let (mut chain, genesis_block) = mockchain_setup();
 
         // Get the cell by hash
-        let secp_multisig_code_hash_bytes = Byte32::from_slice(&ckb_system_scripts::CODE_HASH_SECP256K1_BLAKE160_MULTISIG_ALL).unwrap();
-        let secp_multisig_outpoint = chain.get_cell_by_data_hash(&secp_multisig_code_hash_bytes).unwrap();
-        let secp_multisig_cell = chain.get_cell(&secp_multisig_outpoint).unwrap();
-        let cell_by_hash = secp_multisig_cell.0;
+        let dao_code_hash_bytes = Byte32::from_slice(&ckb_system_scripts::CODE_HASH_SECP256K1_BLAKE160_MULTISIG_ALL).unwrap();
+        let dao_outpoint = chain.get_cell_by_data_hash(&dao_code_hash_bytes).unwrap();
+        let dao_cell = chain.get_cell(&dao_outpoint).unwrap();
+        let cell_by_hash = dao_cell.0;
 
         // Get cell by location
         let location = crate::types::constants::MULTISIG_OUTPUT_LOC; // TX 0 OUTP 4
