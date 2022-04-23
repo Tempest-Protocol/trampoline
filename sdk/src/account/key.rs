@@ -78,6 +78,7 @@ pub struct Public {
 }
 
 impl Public {
+    #[allow(dead_code)]
     pub fn from_slice(data: &[u8]) -> Result<Public, AccountError> {
         Ok(secp256k1::PublicKey::from_slice(data)?.into())
     }
@@ -140,10 +141,12 @@ impl KeyPair {
         Ok(KeyPair { secret, public })
     }
 
+    #[allow(dead_code)]
     pub fn secret(&self) -> &Secret {
         &self.secret
     }
 
+    #[allow(dead_code)]
     pub fn public(&self) -> &Public {
         &self.public
     }

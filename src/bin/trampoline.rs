@@ -12,7 +12,7 @@ use structopt::StructOpt;
 use trampoline::account::AccountSubCommand;
 
 use trampoline::docker::*;
-use trampoline::opts::{AccountCommand, NetworkCommands, SchemaCommand, TrampolineCommand};
+use trampoline::opts::{NetworkCommands, SchemaCommand, TrampolineCommand};
 use trampoline::parse_hex;
 use trampoline::project::*;
 use trampoline::schema::{Schema, SchemaInitArgs};
