@@ -434,12 +434,12 @@ dependencies = [
 
 [[package]]
 name = "ckb-fixed-hash"
-version = "0.102.0"
+version = "0.103.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8c0a11805f5546d7a9b7b9deb15aa2eab338067bbca57577a91bb1576f74640"
+checksum = "87e16c26d073b6ce9820154d8fb067d95dbfcb91faa693162341e90f26c3363f"
 dependencies = [
- "ckb-fixed-hash-core 0.102.0",
- "ckb-fixed-hash-macros 0.102.0",
+ "ckb-fixed-hash-core 0.103.0",
+ "ckb-fixed-hash-macros 0.103.0",
 ]
 
 [[package]]
@@ -455,9 +455,9 @@ dependencies = [
 
 [[package]]
 name = "ckb-fixed-hash-core"
-version = "0.102.0"
+version = "0.103.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de3ccd93f2d6a953350d215093afcd061a8fbe870f89cc79f330d853201600c8"
+checksum = "14c7cda98b0ed0f7c46788e5399b1c69423cad02cf9b8f9f77e3ed7cfbd95dcc"
 dependencies = [
  "faster-hex",
  "serde",
@@ -478,11 +478,11 @@ dependencies = [
 
 [[package]]
 name = "ckb-fixed-hash-macros"
-version = "0.102.0"
+version = "0.103.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75641bfde0a29ebee5d46c9a71d8c1a5fdb1fb03447201dea4ad54c3bcc78b42"
+checksum = "bcc8f5a4d66e01da9f8024aea5a49ee0c93f7a927e932b37c162c7afd38959f4"
 dependencies = [
- "ckb-fixed-hash-core 0.102.0",
+ "ckb-fixed-hash-core 0.103.0",
  "proc-macro2",
  "quote",
  "syn",
@@ -2915,7 +2915,7 @@ dependencies = [
  "ckb-chain-spec",
  "ckb-crypto",
  "ckb-error",
- "ckb-fixed-hash 0.102.0",
+ "ckb-fixed-hash 0.103.0",
  "ckb-hash",
  "ckb-jsonrpc-types",
  "ckb-resource",
