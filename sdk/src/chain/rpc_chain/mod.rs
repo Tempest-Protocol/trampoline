@@ -65,4 +65,12 @@ impl RpcChain {
     pub fn default_lock(&self) -> Option<OutPoint> {
         self.default_lock.clone()
     }
+
+    pub fn reset(&self) -> Result<(),ChainError> {
+        self.inner().rollback(0)
+    }
+
+    pub fn mine_once(&self) -> Result<H256, ChainError> {
+        self.inner().mine_once()
+    }
 }

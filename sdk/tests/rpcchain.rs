@@ -57,6 +57,24 @@ mod test {
         assert!(tip.is_some());
     }
 
+
+    #[test]
+    fn test_mine_one_block() {
+        let chain = default_chain();
+        chain.reset().expect("Failed to reset chain");
+        let first_header = chain.get_tip().expect("Failed to get tip from chain");
+        let mined_hash = chain.mine_once().expect("Failed to mine a block");
+        let second_header = chain.get_tip().expect("Failed to get tip from chain");
+        assert_eq!(
+            first_header.inner.number.value() + 1,
+            second_header.inner.number.value() as u64
+        );
+        assert_eq!(
+            second_header.hash,
+            mined_hash
+        );
+    }
+    
     #[test]
     #[ignore]
     fn test_verify_valid_tx() {
