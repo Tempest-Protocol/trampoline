@@ -1,4 +1,4 @@
-#[cfg(all(feature = "rpc", test))]
+// #[cfg(all(feature = "rpc", test))]
 mod test {
     use std::{collections::HashMap, str::FromStr, thread, time::Duration};
 
@@ -212,8 +212,8 @@ mod test {
             .deploy_cell(&ass_cell, unlockers, &inputs)
             .expect("Failed to deploy AlwaysSuccessLock cell");
 
-        // Wait for 15 seconds
-        thread::sleep(Duration::from_secs(20));
+        // Mine a block
+        let _mined_block_hash = chain.mine_once();
 
         chain
             .set_default_lock(ass_cell)
