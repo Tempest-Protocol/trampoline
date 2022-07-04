@@ -9,11 +9,6 @@ jobs:
   integration:
     name: RPC Test
     runs-on: ubuntu-latest
-    services:
-      ckb-testchain:
-        image: pablitx/ckb-testchain
-        ports:
-          - 8114:8114
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
@@ -21,8 +16,10 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-      - name: Run indexer
-        run: docker run nervos/ckb-indexer -s data
+      - name: Run CKB node
+        run: docker run -d --network host pablitx/ckb-testchain
+      - name: Run CKB indexer
+        run: docker run -d --network host nervos/ckb-indexer -s data
       - uses: actions-rs/cargo@v1
         with:
           command: test
