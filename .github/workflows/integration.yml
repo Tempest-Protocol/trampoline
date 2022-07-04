@@ -14,11 +14,6 @@ jobs:
         image: pablitx/ckb-testchain
         ports:
           - 8114:8114
-      ckb-indexer:
-        image: nervos/ckb-indexer
-        args: -s data
-        ports:
-          - 8116:8116
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
