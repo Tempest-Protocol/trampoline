@@ -23,4 +23,5 @@ jobs:
           override: true
       - uses: actions-rs/cargo@v1
         with:
-          command: test --features rpc
+          command: test
+          args: --features rpc
