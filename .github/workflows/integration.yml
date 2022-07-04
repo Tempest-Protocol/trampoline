@@ -1,0 +1,26 @@
+name: Integration Tests
+
+on: [push, pull_request]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  integration:
+    name: RPC Test
+    runs-on: ubuntu-latest
+    services:
+      ckb-testchain:
+        image: pablitx/ckb-testchain
+        ports:
+          - 6379:6379
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test --features rpc
