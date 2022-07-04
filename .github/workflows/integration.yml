@@ -16,7 +16,7 @@ jobs:
           - 8114:8114
       ckb-indexer:
         image: nervos/ckb-indexer
-        options: -s data
+        args: -s data
         ports:
           - 8116:8116
     steps:
@@ -26,6 +26,8 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
+      - name: Run indexer
+        run: docker run nervos/ckb-indexer -s data
       - uses: actions-rs/cargo@v1
         with:
           command: test
