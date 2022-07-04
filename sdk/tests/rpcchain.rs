@@ -212,8 +212,9 @@ mod test {
             .deploy_cell(&ass_cell, unlockers, &inputs)
             .expect("Failed to deploy AlwaysSuccessLock cell");
 
-        // Mine a block
+        // Mine block and wait for indexer to catch up
         let _mined_block_hash = chain.mine_once();
+        thread::sleep(Duration::from_secs(5)); // 20 seconds
 
         chain
             .set_default_lock(ass_cell)
