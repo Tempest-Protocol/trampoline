@@ -22,7 +22,6 @@ jobs:
           toolchain: stable
           override: true
       - uses: actions-rs/cargo@v1
-        working-directory: ./sdk
         with:
           command: test
-          args: --features rpc
+          args: --features rpc --manifest-path sdk/Cargo.toml
