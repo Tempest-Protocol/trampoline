@@ -2,12 +2,15 @@
 mod test {
     use std::{collections::HashMap, str::FromStr, thread, time::Duration};
 
+    use serial_test::serial;
+
     use ckb_always_success_script::ALWAYS_SUCCESS;
     use ckb_types::{
         packed::CellOutput,
         prelude::{Pack, Unpack},
         H256,
     };
+
     use trampoline_sdk::{
         bytes::Bytes,
         cell::Cell,
@@ -50,7 +53,19 @@ mod test {
             Self { account: account }
         }
     }
+
+    fn force_reindex(block_height: u64, chain: &RpcChain) {
+        chain.reset();
+        thread::sleep(Duration::from_secs(1));
+        for block in 0..block_height+1 {
+            
+            chain.mine_once();
+            thread::sleep(Duration::from_secs(1));
+        }
+    } 
+    
     #[test]
+    #[serial]
     fn test_rpc_client_get_tip() {
         let chain = default_chain();
         let tip = chain.get_tip();
@@ -59,9 +74,11 @@ mod test {
 
 
     #[test]
+    #[serial]
     fn test_mine_one_block() {
+        // No reindex, this is the first test that mines a block
+        // Blocks mined in this test: 1
         let chain = default_chain();
-        chain.reset().expect("Failed to reset chain");
         let first_header = chain.get_tip().expect("Failed to get tip from chain");
         let mined_hash = chain.mine_once().expect("Failed to mine a block");
         let second_header = chain.get_tip().expect("Failed to get tip from chain");
@@ -80,6 +97,12 @@ mod test {
     fn test_verify_valid_tx() {
         // Given a default chain, default sender and random receiver account
         let chain = default_chain();
+        // Chain must be resetted and reindexed at
+        // the beginning of each test.
+        // Starting block height for this test: 2
+        // force_reindex(5, &chain);
+        
+
         let dev = DevAccount::default();
         let sender = dev.account;
         let password = b"trampoline";
@@ -97,10 +120,16 @@ mod test {
     }
 
     #[test]
-    #[ignore]
+    #[serial]
     fn test_send_tx_get_tx() {
+        // Chain height after this test: 1
+
         // Given a default chain, default sender and random receiver account
         let chain = default_chain();
+        // Chain must be resetted and reindexed at
+        // the beginning of each test.
+        // Starting block height for this test: 2
+        force_reindex(10, &chain);
         let dev = DevAccount::default();
         let sender = dev.account;
         let password = b"trampoline";
@@ -157,6 +186,7 @@ mod test {
     // }
 
     #[test]
+    #[serial]
     fn new_rpc_dev_chain_has_sighash_all_as_default_lock() {
         let chain = default_chain();
         assert!(chain.default_lock.is_some());
@@ -171,6 +201,7 @@ mod test {
     }
 
     #[test]
+    #[serial]
     fn create_cell_with_default_lock_from_default_rpcchain_has_sighashall_lock() {
         let chain = default_chain();
         let cell = chain.generate_cell_with_default_lock(Bytes::default());
@@ -181,8 +212,16 @@ mod test {
     }
 
     #[test]
+    #[serial]
     fn deploy_ass_and_set_as_default_lock() {
         let mut chain = default_chain();
+        // Chain must be resetted and reindexed at
+        // the beginning of each test.
+        // Starting block height for this test: 2
+        force_reindex(10, &chain);
+
+
+        // let _reset = chain.reset().expect("Failed to reset chain");
         let dev = DevAccount::default();
         let dev_account_lock = SigHashAllLock::from_account(&dev.account).as_script();
         let password = b"trampoline";
