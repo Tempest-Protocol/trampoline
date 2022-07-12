@@ -96,35 +96,37 @@ impl Chain for RpcChain {
         }
     }
 
-    fn set_default_lock(&mut self, lock: Cell) -> Result<(), ChainError> {
-        // Check if script is already deployed
-        let deployer_lock = lock.lock_script().unwrap();
-        let mut indexer = IndexerRpcClient::new(self.indexer_url.as_str());
-        let query = CellQueryOptions::new_lock(deployer_lock.into());
-        let search_key = query.into();
-        let deployed_cells = indexer.get_cells(search_key, Order::Desc, 100.into(), None);
+    fn set_default_lock(&mut self, lock: OutPoint) -> Result<(), ChainError> {
+        self.default_lock = Some(lock);
+        Ok(())
+        // // Check if script is already deployed
+        // let deployer_lock = lock.lock_script().unwrap();
+        // let mut indexer = IndexerRpcClient::new(self.indexer_url.as_str());
+        // let query = CellQueryOptions::new_lock(deployer_lock.into());
+        // let search_key = query.into();
+        // let deployed_cells = indexer.get_cells(search_key, Order::Desc, 100.into(), None);
 
-        match deployed_cells {
-            Ok(cell_page) => {
-                let cells = cell_page.objects;
-                match cells.into_iter().find(|cell| {
-                    let cell_data_hash = CellOutput::calc_data_hash(cell.output_data.as_bytes());
-                    lock.data_hash()
-                        == H256::from_slice(cell_data_hash.as_slice())
-                            .expect("Failed to hash cell data")
-                }) {
-                    // If some cell is found, set it as default lock
-                    Some(cell) => {
-                        self.default_lock = Some(cell.out_point.into());
-                        Ok(())
-                    }
-                    // If none is found, deploy it
-                    None => Err(ChainError::LockScriptCellNotFound(lock)),
-                }
-            }
+        // match deployed_cells {
+        //     Ok(cell_page) => {
+        //         let cells = cell_page.objects;
+        //         match cells.into_iter().find(|cell| {
+        //             let cell_data_hash = CellOutput::calc_data_hash(cell.output_data.as_bytes());
+        //             lock.data_hash()
+        //                 == H256::from_slice(cell_data_hash.as_slice())
+        //                     .expect("Failed to hash cell data")
+        //         }) {
+        //             // If some cell is found, set it as default lock
+        //             Some(cell) => {
+        //                 self.default_lock = Some(cell.out_point.into());
+        //                 Ok(())
+        //             }
+        //             // If none is found, deploy it
+        //             None => Err(ChainError::LockScriptCellNotFound(lock)),
+        //         }
+        //     }
 
-            Err(err) => Err(ChainError::RpcError(err)),
-        }
+        //     Err(err) => Err(ChainError::RpcError(err)),
+        // }
     }
 
     fn generate_cell_with_default_lock(&self, lock_args: crate::types::bytes::Bytes) -> Cell {

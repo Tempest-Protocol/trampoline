@@ -64,7 +64,7 @@ pub trait Chain {
         inputs: &CellInputs,
     ) -> ChainResult<Vec<OutPoint>>;
 
-    fn set_default_lock(&mut self, cell: Cell) -> Result<(), ChainError>;
+    fn set_default_lock(&mut self, lock: OutPoint) -> Result<(), ChainError>;
 
     fn generate_cell_with_default_lock(&self, lock_args: Bytes) -> Cell;
 }
