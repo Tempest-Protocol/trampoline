@@ -1,7 +1,8 @@
-// #[cfg(all(feature = "rpc", test))]
+#[cfg(all(feature = "rpc", test))]
 mod test {
-    use std::{collections::HashMap, str::FromStr, thread, time::Duration};
+    use std::{collections::HashMap, str::FromStr, thread, time::Duration, process::{Command, Output}};
 
+    use ckb_sdk::traits::DefaultCellDepResolver;
     use serial_test::serial;
 
     use ckb_always_success_script::ALWAYS_SUCCESS;
@@ -34,6 +35,15 @@ mod test {
         RpcChain::new(CKB_URL, INDEXER_URL)
     }
 
+    fn fresh_chain() -> RpcChain {
+        let chain = RpcChain::new(CKB_URL, INDEXER_URL);
+        chain.reset().expect("Failed to reset chain to genesis block");
+        thread::sleep(Duration::from_secs(1));
+        restart_indexer();
+        thread::sleep(Duration::from_secs(2));
+        chain
+    }
+
     // Creates default Account
     // Password: trampoline
     // Privkey controls default devchain account
@@ -54,20 +64,32 @@ mod test {
         }
     }
 
-    fn force_reindex(block_height: u64, chain: &RpcChain) {
-        chain.reset();
-        thread::sleep(Duration::from_secs(1));
-        for block in 0..block_height+1 {
-            
-            chain.mine_once();
-            thread::sleep(Duration::from_secs(1));
-        }
-    } 
+    fn restart_indexer() {
+        Command::new("docker")
+            .arg("stop")
+            .arg("trampoline-test-indexer")
+            .output()
+            .expect("Failed to stop indexer container");
+
+        Command::new("docker")
+            .arg("run")
+            .arg("-d")
+            .arg("--rm")
+            .arg("--network")
+            .arg("host")
+            .arg("--name")
+            .arg("trampoline-test-indexer")
+            .arg("nervos/ckb-indexer")
+            .arg("-s")
+            .arg("data")
+            .output()
+            .expect("Failed to start indexer container");
+    }
     
     #[test]
     #[serial]
     fn test_rpc_client_get_tip() {
-        let chain = default_chain();
+        let chain = fresh_chain();
         let tip = chain.get_tip();
         assert!(tip.is_some());
     }
@@ -76,9 +98,7 @@ mod test {
     #[test]
     #[serial]
     fn test_mine_one_block() {
-        // No reindex, this is the first test that mines a block
-        // Blocks mined in this test: 1
-        let chain = default_chain();
+        let chain = fresh_chain();
         let first_header = chain.get_tip().expect("Failed to get tip from chain");
         let mined_hash = chain.mine_once().expect("Failed to mine a block");
         let second_header = chain.get_tip().expect("Failed to get tip from chain");
@@ -96,12 +116,7 @@ mod test {
     #[ignore]
     fn test_verify_valid_tx() {
         // Given a default chain, default sender and random receiver account
-        let chain = default_chain();
-        // Chain must be resetted and reindexed at
-        // the beginning of each test.
-        // Starting block height for this test: 2
-        // force_reindex(5, &chain);
-        
+        let chain = fresh_chain();        
 
         let dev = DevAccount::default();
         let sender = dev.account;
@@ -122,14 +137,9 @@ mod test {
     #[test]
     #[serial]
     fn test_send_tx_get_tx() {
-        // Chain height after this test: 1
-
         // Given a default chain, default sender and random receiver account
-        let chain = default_chain();
-        // Chain must be resetted and reindexed at
-        // the beginning of each test.
-        // Starting block height for this test: 2
-        force_reindex(10, &chain);
+        let chain = fresh_chain();
+
         let dev = DevAccount::default();
         let sender = dev.account;
         let password = b"trampoline";
@@ -168,27 +178,10 @@ mod test {
         assert_eq!(sent_tx, fetched_tx);
     }
 
-    // #[test]
-    // fn test_tx_balancing_fills_right_amount_of_ckb() {
-    //     // Given
-    //     let chain = default_chain();
-    //     let dev = default_account();
-    //     // When
-    //     let lock = SigHashAllLock::from_account(&dev);
-
-    //     let cell = &chain.generate_cell_with_default_lock(lock.as_script().args().into());
-    //     let tx = TransactionBuilder::default()
-    //         .add_output(cell)
-    //         .balance(lock.as_script(), None, chain).expect("Failed to balance transaction")
-    //         .build();
-    //     // Then
-    //     let rtx = &chain.inner().resolve_tx_alt(tx);
-    // }
-
     #[test]
     #[serial]
     fn new_rpc_dev_chain_has_sighash_all_as_default_lock() {
-        let chain = default_chain();
+        let chain = fresh_chain();
         assert!(chain.default_lock.is_some());
         let cell = chain
             .inner()
@@ -203,7 +196,7 @@ mod test {
     #[test]
     #[serial]
     fn create_cell_with_default_lock_from_default_rpcchain_has_sighashall_lock() {
-        let chain = default_chain();
+        let chain = fresh_chain();
         let cell = chain.generate_cell_with_default_lock(Bytes::default());
         let code_hash = cell.lock_script().unwrap().code_hash();
         let sighash_all_code_hash =
@@ -214,12 +207,7 @@ mod test {
     #[test]
     #[serial]
     fn deploy_ass_and_set_as_default_lock() {
-        let mut chain = default_chain();
-        // Chain must be resetted and reindexed at
-        // the beginning of each test.
-        // Starting block height for this test: 2
-        force_reindex(10, &chain);
-
+        let mut chain = fresh_chain();
 
         // let _reset = chain.reset().expect("Failed to reset chain");
         let dev = DevAccount::default();
@@ -240,9 +228,6 @@ mod test {
             unlockers
         };
 
-        // let unlockers = unlocker.as_group();
-        // unlockers.push(another_unlocker);
-
         // Create inputs
         let inputs = CellInputs::from(Script::from(dev_account_lock));
 
@@ -252,22 +237,30 @@ mod test {
             .expect("Failed to deploy AlwaysSuccessLock cell");
 
         // Mine block and wait for indexer to catch up
-        let _mined_block_hash = chain.mine_once();
-        thread::sleep(Duration::from_secs(5)); // 20 seconds
+        let _mined_block_hash = chain.mine_once().expect("Failed to mine block");
+        let _mined_block_hash = chain.mine_once().expect("Failed to mine block");
+        let _mined_block_hash = chain.mine_once().expect("Failed to mine block");
+        let _mined_block_hash = chain.mine_once().expect("Failed to mine block");
+        thread::sleep(Duration::from_secs(1)); // 20 seconds
+        // let _mined_block_hash = chain.mine_once();
+        // thread::sleep(Duration::from_secs(1)); // 20 seconds
+        // let _mined_block_hash = chain.mine_once();
+        // thread::sleep(Duration::from_secs(1)); // 20 seconds
 
         chain
-            .set_default_lock(ass_cell)
+            .set_default_lock(deploy_outpoint)
             .expect("Failed to set default lock");
 
         // Check that default lock outpoint and deploy output are the same
         let default_lock_outpoint = chain.default_lock().unwrap();
+        println!("Default lock cell is \nTxHash: {:?}\nIndex: {:?}", default_lock_outpoint.tx_hash(), default_lock_outpoint.index());
 
         let ass_script_cell = chain
             .inner()
             .get_cell_with_data(&default_lock_outpoint)
             .expect("Failed to get script cell");
 
-        let from_chain_data_hash = Bytes::from(ass_script_cell.1.clone()).hash_256();
+        let from_chain_data_hash = Bytes::from(ass_script_cell.1).hash_256();
         let from_deploy_data_hash = Bytes::from(ass_script_bin.to_vec()).hash_256();
         assert_eq!(from_chain_data_hash, from_deploy_data_hash);
     }
