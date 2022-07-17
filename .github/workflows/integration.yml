@@ -1,0 +1,26 @@
+name: Integration Tests
+
+on: [push, pull_request]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  integration:
+    name: RPC Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - name: Run CKB node
+        run: docker run -d --rm --network host --name trampoline-test-ckb pablitx/ckb-testchain
+      - name: Run CKB indexer
+        run: docker run -d --rm --network host --name trampoline-test-indexer nervos/ckb-indexer -s data
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --features rpc --manifest-path sdk/Cargo.toml -- --test-threads=1

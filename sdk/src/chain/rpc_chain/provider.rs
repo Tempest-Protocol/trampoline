@@ -8,7 +8,7 @@ use ckb_hash::blake2b_256;
 use ckb_jsonrpc_types as json_types;
 use ckb_script::{TransactionScriptsVerifier, TxVerifyEnv};
 use ckb_sdk::traits::{TransactionDependencyError, TransactionDependencyProvider};
-use ckb_sdk::CkbRpcClient;
+use ckb_sdk::{CkbRpcClient, RpcError};
 use ckb_traits::{CellDataProvider, HeaderProvider};
 use ckb_types::core::cell::{
     resolve_transaction_with_options, CellMeta, CellMetaBuilder, CellProvider, CellStatus,
@@ -80,6 +80,22 @@ impl RpcProvider {
             Ok(tx) => Ok(tx),
             Err(e) => Err(ChainError::RpcError(e)),
         }
+    }
+
+    pub fn rollback(&self, previous_block: u64) -> Result<(),ChainError> {
+
+        let mut inner = self.inner.lock();
+        let block_hash = inner.rpc_client.get_header_by_number(previous_block.into());
+        match block_hash {
+            Ok(Some(header)) => {
+                match inner.rpc_client.truncate(header.hash) {
+                    Ok(()) => Ok(()),
+                    Err(e) => Err(ChainError::RpcError(e))
+                }
+            },
+
+            _ => Err(ChainError::BlockNumberNotFound(previous_block))
+        }   
     }
 
     pub fn get_cell_with_data(
@@ -166,6 +182,15 @@ impl RpcProvider {
             Ok(None) => Err(ChainError::GenesisBlockNotFound),
             Err(e) => Err(ChainError::RpcError(e)),
         }
+    }
+
+    pub fn mine_once(&self) -> Result<H256, ChainError> {
+        let mut inner = self.inner.lock();
+        match inner.rpc_client.generate_block(None, None) {
+            Ok(hash) => Ok(hash),
+            Err(e) => Err(ChainError::RpcError(e))
+        }
+
     }
 }
 
