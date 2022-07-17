@@ -63,13 +63,13 @@ impl TransactionHelper {
         match builder_result {
             Ok((tx, locked_group)) => {
                 if locked_group.is_empty() {
-                    return Ok(tx)
+                    Ok(tx)
                 } else {
-                    return Err(HelperError::LockedGroupNotEmpty(locked_group))
+                    Err(HelperError::LockedGroupNotEmpty(locked_group))
                 }
             },
             Err(e) => {
-                return Err(HelperError::BuildError(e));
+                Err(HelperError::BuildError(e))
             }
         }
     }

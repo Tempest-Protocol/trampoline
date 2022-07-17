@@ -46,7 +46,7 @@ impl SigHashAllLock {
         Self {
             hash_type: ScriptHashType::Type,
             code_hash: SIGHASH_TYPE_HASH.pack(),
-            lock_arg: lock_arg,
+            lock_arg,
         }
     }
 }

@@ -8,7 +8,7 @@ use ckb_hash::blake2b_256;
 use ckb_jsonrpc_types as json_types;
 use ckb_script::{TransactionScriptsVerifier, TxVerifyEnv};
 use ckb_sdk::traits::{TransactionDependencyError, TransactionDependencyProvider};
-use ckb_sdk::{CkbRpcClient, RpcError};
+use ckb_sdk::CkbRpcClient;
 use ckb_traits::{CellDataProvider, HeaderProvider};
 use ckb_types::core::cell::{
     resolve_transaction_with_options, CellMeta, CellMetaBuilder, CellProvider, CellStatus,

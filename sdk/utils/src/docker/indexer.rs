@@ -1,6 +1,7 @@
+#[allow(unused_imports)]
 use ckb_sdk::IndexerRpcClient;
 use testcontainers::{*, core::WaitFor};
-
+#[allow(unused_imports)]
 use super::ckb::CkbNode;
 
 const NAME: &str = "nervos/ckb-indexer";
@@ -62,7 +63,7 @@ fn indexer_image() {
         .with_container_name("ckb-test-indexer")
         .with_network("test");
 
-    let node = docker.run(node_runnable);
+    let _node = docker.run(node_runnable);
     let indexer = docker.run(indexer_runnable);
 
     let indexer_port = indexer.get_host_port_ipv4(8116);

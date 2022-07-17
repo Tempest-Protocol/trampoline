@@ -69,7 +69,7 @@ pub mod cell_error {
         }
     }
     impl From<BytesError> for CellError {
-        fn from(e: BytesError) -> Self {
+        fn from(_e: BytesError) -> Self {
             CellError::BytesError
         }
     }
@@ -93,7 +93,7 @@ pub use cell_error::*;
 pub type CellResult<T> = Result<T, CellError>;
 
 #[cfg_attr(all(feature = "std", not(feature = "script")), derive(Debug))]
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Cell {
     data: Bytes,
     outpoint: Option<OutPoint>,
@@ -102,17 +102,17 @@ pub struct Cell {
     type_script: Option<Script>,
 }
 
-impl Default for Cell {
-    fn default() -> Self {
-        Self {
-            data: Default::default(),
-            outpoint: Default::default(),
-            capacity: Default::default(),
-            lock_script: Default::default(),
-            type_script: Default::default(),
-        }
-    }
-}
+// impl Default for Cell {
+//     fn default() -> Self {
+//         Self {
+//             data: Default::default(),
+//             outpoint: Default::default(),
+//             capacity: Default::default(),
+//             lock_script: Default::default(),
+//             type_script: Default::default(),
+//         }
+//     }
+// }
 
 impl Cell {
     pub fn with_data(data: impl Into<Bytes>) -> Self {

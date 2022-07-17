@@ -4,6 +4,7 @@ use std::prelude::v1::*;
 use super::{Chain, ChainError};
 
 use ckb_jsonrpc_types::{ScriptHashType, TransactionWithStatus};
+#[allow(unused_imports)]
 use ckb_sdk::IndexerRpcClient;
 pub use provider::*;
 pub use trait_impls::*;

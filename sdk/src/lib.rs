@@ -1,6 +1,8 @@
+// allow unused imports for now since many unused imports are present
+// because they'll be used in the near future
+#![allow(unused_imports)]
 #![no_std]
 extern crate no_std_compat as std;
-
 #[cfg(all(feature = "std", not(feature = "script")))]
 pub mod account;
 
@@ -276,7 +278,7 @@ pub mod ckb_types {
 
                 fn from_str(s: &str) -> Result<Self, Self::Err> {
                     Ok(Capacity(
-                        s.parse::<u64>().map_err(|e| CapacityError::ParseInt)?,
+                        s.parse::<u64>().map_err(|_e| CapacityError::ParseInt)?,
                     ))
                 }
             }
@@ -393,6 +395,7 @@ pub mod ckb_types {
 
         impl DepType {
             #[inline]
+            #[allow(unused)]
             pub(crate) fn verify_value(v: u8) -> bool {
                 v <= 1
             }
