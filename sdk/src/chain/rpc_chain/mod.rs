@@ -67,7 +67,7 @@ impl RpcChain {
         self.default_lock.clone()
     }
 
-    pub fn reset(&self) -> Result<(),ChainError> {
+    pub fn reset(&self) -> Result<(), ChainError> {
         self.inner().rollback(0)
     }
 

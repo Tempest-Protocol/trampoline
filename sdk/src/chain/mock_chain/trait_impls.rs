@@ -4,7 +4,6 @@ use crate::chain::*;
 use crate::contract::generator::{QueryProvider, TransactionProvider};
 use crate::query::{CellQuery, CellQueryAttribute, QueryStatement};
 
-
 use ckb_always_success_script::ALWAYS_SUCCESS;
 use ckb_jsonrpc_types::TransactionView as JsonTransaction;
 use ckb_traits::{CellDataProvider, HeaderProvider};

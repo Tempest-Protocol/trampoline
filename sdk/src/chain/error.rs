@@ -23,7 +23,7 @@ pub enum ChainError {
     TransactionNotIncluded(H256),
     #[error("Transaction with hash {0} not included in any block yet")]
     BlockNotFound(H256),
-     #[error("Block with number {0} was not mined yet")]
+    #[error("Block with number {0} was not mined yet")]
     BlockNumberNotFound(u64),
     #[error("Failed resolving transaction due to outpoint error")]
     TxResolveError(#[from] OutPointError),

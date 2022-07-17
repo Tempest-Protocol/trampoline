@@ -1,2 +1,2 @@
-pub mod indexer;
 pub mod ckb;
+pub mod indexer;

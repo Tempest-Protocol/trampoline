@@ -82,20 +82,17 @@ impl RpcProvider {
         }
     }
 
-    pub fn rollback(&self, previous_block: u64) -> Result<(),ChainError> {
-
+    pub fn rollback(&self, previous_block: u64) -> Result<(), ChainError> {
         let mut inner = self.inner.lock();
         let block_hash = inner.rpc_client.get_header_by_number(previous_block.into());
         match block_hash {
-            Ok(Some(header)) => {
-                match inner.rpc_client.truncate(header.hash) {
-                    Ok(()) => Ok(()),
-                    Err(e) => Err(ChainError::RpcError(e))
-                }
+            Ok(Some(header)) => match inner.rpc_client.truncate(header.hash) {
+                Ok(()) => Ok(()),
+                Err(e) => Err(ChainError::RpcError(e)),
             },
 
-            _ => Err(ChainError::BlockNumberNotFound(previous_block))
-        }   
+            _ => Err(ChainError::BlockNumberNotFound(previous_block)),
+        }
     }
 
     pub fn get_cell_with_data(
@@ -188,9 +185,8 @@ impl RpcProvider {
         let mut inner = self.inner.lock();
         match inner.rpc_client.generate_block(None, None) {
             Ok(hash) => Ok(hash),
-            Err(e) => Err(ChainError::RpcError(e))
+            Err(e) => Err(ChainError::RpcError(e)),
         }
-
     }
 }
 

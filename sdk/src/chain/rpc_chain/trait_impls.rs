@@ -5,7 +5,6 @@ use ckb_types::packed::CellOutput;
 use ckb_types::packed::Script as CkbScript;
 use provider::RpcProvider;
 
-
 impl Chain for RpcChain {
     type Inner = RpcProvider;
 

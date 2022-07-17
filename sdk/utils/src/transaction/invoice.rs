@@ -1,7 +1,14 @@
 use ckb_sdk::tx_builder::transfer::CapacityTransferBuilder;
-use ckb_types::{packed::CellOutput, bytes::Bytes, prelude::{Entity, Pack, Builder}};
+use ckb_types::{
+    bytes::Bytes,
+    packed::CellOutput,
+    prelude::{Builder, Entity, Pack},
+};
 
-use crate::{account::Account, lock::{Lock, SigHashAllLock}};
+use crate::{
+    account::Account,
+    lock::{Lock, SigHashAllLock},
+};
 
 /// Invoice is a simple TX builder generator
 /// It can be used to create a TX with a single output
@@ -11,7 +18,6 @@ pub struct DefaultInvoice;
 
 impl DefaultInvoice {
     pub fn new_tx_builder(account: &Account, amount: &u64) -> CapacityTransferBuilder {
-
         let lock = SigHashAllLock::from_account(account);
 
         let output = CellOutput::new_builder()

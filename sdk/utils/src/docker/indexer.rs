@@ -1,8 +1,8 @@
 #[allow(unused_imports)]
-use ckb_sdk::IndexerRpcClient;
-use testcontainers::{*, core::WaitFor};
-#[allow(unused_imports)]
 use super::ckb::CkbNode;
+#[allow(unused_imports)]
+use ckb_sdk::IndexerRpcClient;
+use testcontainers::{core::WaitFor, *};
 
 const NAME: &str = "nervos/ckb-indexer";
 const TAG: &str = "latest";
@@ -20,7 +20,7 @@ impl ImageArgs for CkbIndexerArgs {
                 "-s".to_string(),
                 "data".to_string(),
                 "-c".to_string(),
-                "tcp://ckb-test-node:8114".to_string()
+                "tcp://ckb-test-node:8114".to_string(),
             ]
             .into_iter(),
         )
@@ -39,9 +39,9 @@ impl Image for CkbIndexer {
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {
-        vec![
-            WaitFor::Duration { length: std::time::Duration::from_secs(5) }
-        ]
+        vec![WaitFor::Duration {
+            length: std::time::Duration::from_secs(5),
+        }]
     }
 }
 
@@ -49,12 +49,12 @@ impl Image for CkbIndexer {
 fn indexer_image() {
     let _ = pretty_env_logger::try_init();
     let docker = clients::Cli::default();
-    
+
     // Setup runnables
     let node_runnable = RunnableImage::from(CkbNode)
         .with_container_name("ckb-test-node")
         .with_network("test");
-    
+
     // let indexer_image = images::generic::GenericImage::new("nervos/ckb-indexer", "latest")
     //     .with_entrypoint("/bin/ckb-indexer -s data -c http://ckb-test-node:8114")
     //     .with_wait_for(WaitFor::seconds(3));

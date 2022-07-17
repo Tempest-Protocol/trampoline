@@ -1,4 +1,4 @@
-use testcontainers::{*, core::WaitFor};
+use testcontainers::{core::WaitFor, *};
 
 const NAME: &str = "pablitx/ckb-testchain";
 const TAG: &str = "latest";
@@ -32,9 +32,9 @@ impl Image for CkbNode {
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {
-        vec![
-            WaitFor::message_on_stdout("Listen HTTP RPCServer on address")
-        ]
+        vec![WaitFor::message_on_stdout(
+            "Listen HTTP RPCServer on address",
+        )]
     }
 }
 

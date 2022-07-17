@@ -1,6 +1,12 @@
 #[cfg(all(feature = "rpc", test))]
 mod test {
-    use std::{collections::HashMap, str::FromStr, thread, time::Duration, process::{Command, Output}};
+    use std::{
+        collections::HashMap,
+        process::{Command, Output},
+        str::FromStr,
+        thread,
+        time::Duration,
+    };
 
     use ckb_sdk::traits::DefaultCellDepResolver;
     use serial_test::serial;
@@ -37,7 +43,9 @@ mod test {
 
     fn fresh_chain() -> RpcChain {
         let chain = RpcChain::new(CKB_URL, INDEXER_URL);
-        chain.reset().expect("Failed to reset chain to genesis block");
+        chain
+            .reset()
+            .expect("Failed to reset chain to genesis block");
         thread::sleep(Duration::from_secs(1));
         restart_indexer();
         thread::sleep(Duration::from_secs(2));
@@ -85,7 +93,7 @@ mod test {
             .output()
             .expect("Failed to start indexer container");
     }
-    
+
     #[test]
     #[serial]
     fn test_rpc_client_get_tip() {
@@ -93,7 +101,6 @@ mod test {
         let tip = chain.get_tip();
         assert!(tip.is_some());
     }
-
 
     #[test]
     #[serial]
@@ -106,17 +113,14 @@ mod test {
             first_header.inner.number.value() + 1,
             second_header.inner.number.value() as u64
         );
-        assert_eq!(
-            second_header.hash,
-            mined_hash
-        );
+        assert_eq!(second_header.hash, mined_hash);
     }
-    
+
     #[test]
     #[ignore]
     fn test_verify_valid_tx() {
         // Given a default chain, default sender and random receiver account
-        let chain = fresh_chain();        
+        let chain = fresh_chain();
 
         let dev = DevAccount::default();
         let sender = dev.account;
@@ -242,10 +246,10 @@ mod test {
         let _mined_block_hash = chain.mine_once().expect("Failed to mine block");
         let _mined_block_hash = chain.mine_once().expect("Failed to mine block");
         thread::sleep(Duration::from_secs(1)); // 20 seconds
-        // let _mined_block_hash = chain.mine_once();
-        // thread::sleep(Duration::from_secs(1)); // 20 seconds
-        // let _mined_block_hash = chain.mine_once();
-        // thread::sleep(Duration::from_secs(1)); // 20 seconds
+                                               // let _mined_block_hash = chain.mine_once();
+                                               // thread::sleep(Duration::from_secs(1)); // 20 seconds
+                                               // let _mined_block_hash = chain.mine_once();
+                                               // thread::sleep(Duration::from_secs(1)); // 20 seconds
 
         chain
             .set_default_lock(deploy_outpoint)
@@ -253,7 +257,11 @@ mod test {
 
         // Check that default lock outpoint and deploy output are the same
         let default_lock_outpoint = chain.default_lock().unwrap();
-        println!("Default lock cell is \nTxHash: {:?}\nIndex: {:?}", default_lock_outpoint.tx_hash(), default_lock_outpoint.index());
+        println!(
+            "Default lock cell is \nTxHash: {:?}\nIndex: {:?}",
+            default_lock_outpoint.tx_hash(),
+            default_lock_outpoint.index()
+        );
 
         let ass_script_cell = chain
             .inner()

@@ -1,5 +1,14 @@
-use ckb_sdk::{traits::SecpCkbRawKeySigner, unlock::{SecpSighashScriptSigner, SecpSighashUnlocker, ScriptUnlocker}, ScriptId, constants::SIGHASH_TYPE_HASH};
-use ckb_types::{core::ScriptHashType, prelude::{Pack, Builder}, packed::{Byte32, Script, ScriptBuilder}};
+use ckb_sdk::{
+    constants::SIGHASH_TYPE_HASH,
+    traits::SecpCkbRawKeySigner,
+    unlock::{ScriptUnlocker, SecpSighashScriptSigner, SecpSighashUnlocker},
+    ScriptId,
+};
+use ckb_types::{
+    core::ScriptHashType,
+    packed::{Byte32, Script, ScriptBuilder},
+    prelude::{Builder, Pack},
+};
 
 use crate::{account::Account, hex::parse_hex};
 
@@ -17,7 +26,10 @@ pub fn create_secp_sighash_unlocker(account: &Account, password: &[u8]) -> Unloc
     let sighash_signer = SecpSighashScriptSigner::new(Box::new(signer));
     let sighash_unlocker = SecpSighashUnlocker::new(sighash_signer);
     let sighash_script_id = ScriptId::new_type(SIGHASH_TYPE_HASH.clone());
-    (sighash_script_id, Box::new(sighash_unlocker) as Box<dyn ScriptUnlocker>)
+    (
+        sighash_script_id,
+        Box::new(sighash_unlocker) as Box<dyn ScriptUnlocker>,
+    )
 }
 
 // Lock Trait for creating diverse locks
