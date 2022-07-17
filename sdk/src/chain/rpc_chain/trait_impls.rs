@@ -5,7 +5,7 @@ use ckb_sdk::{rpc::ckb_indexer::Order, traits::CellQueryOptions};
 use ckb_types::packed::CellOutput;
 use ckb_types::packed::Script as CkbScript;
 use provider::RpcProvider;
-use std::prelude::v1::*;
+
 
 impl Chain for RpcChain {
     type Inner = RpcProvider;

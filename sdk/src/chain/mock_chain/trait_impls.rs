@@ -3,7 +3,7 @@ use crate::chain::mock_chain::MAX_CYCLES;
 use crate::chain::*;
 use crate::contract::generator::{QueryProvider, TransactionProvider};
 use crate::query::{CellQuery, CellQueryAttribute, QueryStatement};
-use std::prelude::v1::*;
+
 
 use ckb_always_success_script::ALWAYS_SUCCESS;
 use ckb_jsonrpc_types::TransactionView as JsonTransaction;
