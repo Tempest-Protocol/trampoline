@@ -98,6 +98,63 @@ impl From<TrampolineResourceType> for TrampolineProject {
     }
 }
 
+impl TrampolineProject {
+    pub fn init_private_dirs(&self) -> Result<()> {
+        let trampoline_db_dir = self.root_dir.join(".trampoline");
+        let trampoline_env_file = self.root_dir.join("trampoline-env.toml");
+        let proj_name = &self.config.name;
+        if !trampoline_db_dir.exists() || !trampoline_db_dir.is_dir() {
+            self.create_trampoline_db_dir()?;
+        }
+        if !trampoline_env_file.exists() {
+            let mut context = TeraContext::new();
+            context.insert("PROJECT_NAME", &proj_name);
+            let template_name = TEMPLATES.get_template_names().find(|p| {
+                *p == "trampoline-env.toml"
+            })
+            .unwrap();
+            let content = TEMPLATES.render(template_name, &context)?;
+            fs::write(&trampoline_env_file, content).unwrap_or_else(|_| {
+                panic!(
+                    "Error writing to {} with template {}",
+                    &trampoline_env_file.to_str().unwrap(),
+                    template_name
+                )
+            });
+        }
+        Ok(())
+    }
+
+    pub fn has_env_file(&self) -> bool {
+        let trampoline_env_file = self.root_dir.join("trampoline-env.toml");
+        trampoline_env_file.exists()
+    }
+
+    pub fn has_trampoline_db_dir(&self) -> bool {
+        let trampoline_db_dir = self.root_dir.join(".trampoline");
+        trampoline_db_dir.exists() && trampoline_db_dir.is_dir()
+    }
+
+   
+
+    pub fn create_trampoline_db_dir(&self) -> Result<()> {
+        let mut project_dir = self.root_dir.clone();
+        project_dir.push(".trampoline");
+        fs::create_dir(&project_dir)?;
+        project_dir.push("accounts");
+        fs::create_dir(&project_dir)?;
+        project_dir.pop();
+        project_dir.push("cache");
+        fs::create_dir(&project_dir)?;
+        project_dir.pop();
+        project_dir.push("network");
+        fs::create_dir(&project_dir)?;
+        fs::create_dir(&project_dir.join("indexer"))?;
+        Ok(())
+        
+    }
+}
+
 impl TrampolineResource for TrampolineProject {
     type Error = TrampolineProjectError;
     type InitArgs = String;

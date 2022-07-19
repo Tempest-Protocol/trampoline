@@ -253,6 +253,34 @@ fn main() -> Result<()> {
                 }
             }
         }
+        TrampolineCommand::Check => {
+            let project = TrampolineProject::from(project?);
+            let has_env = project.has_env_file();
+            let has_private_dir = project.has_trampoline_db_dir();
+
+            if !has_env || !has_private_dir {
+                println!("Missing files or directories:\n");
+            }
+
+            if !has_env {
+                println!("- trampoline-env.toml\n");
+            }
+
+            if !has_private_dir {
+                println!("- .trampoline/\n")
+            }
+           
+            if !has_env || !has_private_dir {
+                let regen_res = project.init_private_dirs();
+                match regen_res {
+                    Ok(_) => println!("Successfully regenerated files."),
+                    Err(e) => println!("Error regenerating files: {}", e)
+                }
+            } else {
+                println!("0 issues found");
+            }
+            
+        },
     }
 
     Ok(())
