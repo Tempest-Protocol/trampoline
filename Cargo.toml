@@ -9,20 +9,20 @@ edition = "2021"
 anyhow = "1.0.56"
 blake2b-rs = "0.2.0"
 bytes = "1.1.0"
+ckb-app-config = { version = "0.103.0"}
+ckb-chain-spec = { version = "0.103.0"}
+ckb-crypto = { version = "0.103.0", features = ["secp"] }
+ckb-error = { version = "0.103.0"}
+ckb-hash = { version = "0.103.0"}
+ckb-jsonrpc-types = { version = "0.103.0"}
+ckb-resource = { version = "0.103.0"}
+ckb-script = { version = "0.103.0"}
+ckb-system-scripts = { version = "0.5.4"}
+ckb-traits = { version = "0.103.0"}
+ckb-types = { version = "0.103.0"}
+ckb-util = { version = "0.103.0"}
+ckb-verification = { version = "0.103.0"}
 ckb-always-success-script = "0.0.1"
-ckb-app-config = "0.101.4"
-ckb-chain-spec = "0.101.4"
-ckb-crypto = "0.101.4"
-ckb-error = "0.101.4"
-ckb-hash = "0.101.4"
-ckb-jsonrpc-types = "0.101.4"
-ckb-resource = "0.101.4"
-ckb-script = "0.101.4"
-ckb-system-scripts = "0.5.4"
-ckb-traits = "0.101.4"
-ckb-types = "0.101.4"
-ckb-util = "0.101.4"
-ckb-verification = "0.101.4"
 hex = "0.4.3"
 includedir = "0.6.0"
 jsonrpc-core = "18.0.0"
@@ -40,12 +40,13 @@ thiserror = "1.0.30"
 tokio = { version = "1.17.0", features = ["full"] }
 toml = "0.5.8"
 walkdir = "2.3.2"
-trampoline-sdk = {path = "./sdk"}
+trampoline-sdk = {path = "./sdk", features = ["std"], default-features = true}
+bollard = "0.13.0"
 
 
 [build-dependencies]
 includedir_codegen = "0.6.0"
 
  [workspace]
- members = ["sdk"]
+ members = ["sdk", "sdk/utils"]
  #members = ["sdk", "validity-lang"]

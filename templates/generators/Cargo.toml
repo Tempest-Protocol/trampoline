@@ -6,3 +6,4 @@ edition = "2021"
 [dependencies]
 {{PROJECT_NAME}}-schemas = {path = "../schemas"}
 trampoline-sdk = {git = "https://github.com/WilfredTA/trampoline", branch = "develop"}
+ckb-jsonrpc-types = "0.103.0"

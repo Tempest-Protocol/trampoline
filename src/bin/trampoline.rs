@@ -1,16 +1,23 @@
 use std::collections::HashMap;
+use std::fs::File;
+use std::fs::OpenOptions;
+use std::io::Write;
 use std::str::FromStr;
 
 use anyhow::anyhow;
 use anyhow::Result;
+use bollard::container::LogsOptions;
+use bytes::Bytes;
 use ckb_app_config::BlockAssemblerConfig;
 use ckb_hash::blake2b_256;
 
 use ckb_types::{h256, H256};
 
+use jsonrpc_core::futures_util::TryStreamExt;
 use structopt::StructOpt;
 
 use trampoline::docker::*;
+use trampoline::network::TrampolineNetwork;
 use trampoline::opts::{NetworkCommands, SchemaCommand, TrampolineCommand};
 use trampoline::parse_hex;
 use trampoline::project::*;
@@ -18,6 +25,9 @@ use trampoline::schema::{Schema, SchemaInitArgs};
 use trampoline::TrampolineResource;
 use trampoline::TrampolineResourceType;
 use trampoline_sdk::rpc;
+
+// use bollard::Docker;
+
 const SECP_TYPE_HASH: H256 =
     h256!("0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8");
 fn create_block_assembler_from_pkhash(hash: &[u8]) -> BlockAssemblerConfig {
@@ -32,7 +42,8 @@ fn create_block_assembler_from_pkhash(hash: &[u8]) -> BlockAssemblerConfig {
     }
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     let opts = TrampolineCommand::from_args();
 
     let project = TrampolineProject::load(std::env::current_dir()?);
@@ -76,9 +87,159 @@ fn main() -> Result<()> {
         TrampolineCommand::Network { command } => {
             let project = TrampolineProject::from(project?);
             match command {
+                // TODO add --recreate flag to init
+                NetworkCommands::Init {} => {
+                    // Set up new network
+                    let mut network = TrampolineNetwork::new(&project, false).await;
+
+                    // Add CKB node
+                    let node = network
+                        .add_ckb(
+                            &format!("{}-ckb", project.config.name),
+                            vec![("8114".to_string(), "8114".to_string())],
+                        )
+                        .await;
+
+                    // Add Indexer
+                    let _indexer = network
+                        .add_indexer(&node, vec![("8116".to_string(), "8116".to_string())])
+                        .await;
+
+                    // Write config
+                    network.save(&project);
+
+                    // TODO drop everything into a TrampolineNetwork type and implement Display for it
+                    // @arnur
+                    println!("{}", network);
+                    // println!("New Trampoline development network created\n\
+                    //         Network name:{}-network\n\
+                    //         Network ID:{}\n\
+                    //         CKB node port: 8114\n\
+                    //         Indexer port: 8116
+                    //         ",
+                    //     network.name,
+                    //     network.id());
+                }
+
+                NetworkCommands::Recreate {} => {
+                    // Stop all containers related to this project (ckb, ckb-indexer)
+                    let network = TrampolineNetwork::new(&project, true).await;
+                    network.save(&project);
+                    println!("{}", network);
+                }
+
+                NetworkCommands::Stop {} => {
+                    // Stop all containers related to this project (ckb, ckb-indexer)
+                    let network = TrampolineNetwork::load(&project);
+                    network.stop().await;
+                }
+
+                NetworkCommands::Reset { service } => {
+                    let network = TrampolineNetwork::load(&project);
+
+                    match service {
+                        None => {
+                            network.stop().await;
+                            network.run().await;
+                            println!("Trampoline network restarted");
+                        }
+                        Some(service) => {
+                            network.reset(service).await;
+                        }
+                    }
+                }
+
+                NetworkCommands::Status {} => {
+                    // Show information about running services
+                    // https://docs.rs/bollard/0.1.0/bollard/struct.Docker.html#method.logs
+                    let network = TrampolineNetwork::load(&project);
+
+                    network.status().await;
+                }
+
+                NetworkCommands::Logs { service, output } => {
+                    let docker = bollard::Docker::connect_with_local_defaults()
+                        .expect("Failed to connect to Docker API");
+
+                    let opts = LogsOptions {
+                        tail: "50".to_string(),
+                        follow: true,
+                        stdout: true,
+                        stderr: true,
+                        ..Default::default()
+                    };
+
+                    let logs = &docker
+                        .logs(&service, Some(opts))
+                        .try_collect::<Vec<_>>()
+                        .await?;
+
+                    // TODO
+                    // Depending on parameters filter the logs array
+
+                    match output {
+                        None => {
+                            for line in logs {
+                                match line {
+                                    bollard::container::LogOutput::StdErr { message } => {
+                                        println!("ERR: {}", std::str::from_utf8(message).unwrap())
+                                    }
+                                    bollard::container::LogOutput::StdOut { message } => {
+                                        println!("OUT: {}", std::str::from_utf8(message).unwrap())
+                                    }
+                                    bollard::container::LogOutput::StdIn { message } => {
+                                        println!("IN: {}", std::str::from_utf8(message).unwrap())
+                                    }
+                                    bollard::container::LogOutput::Console { message } => println!(
+                                        "CONSOLE: {}",
+                                        std::str::from_utf8(message).unwrap()
+                                    ),
+                                }
+                            }
+                        }
+                        Some(path) => {
+                            let mut file = OpenOptions::new()
+                                .write(true)
+                                .append(true)
+                                .create(true)
+                                .open(path)
+                                .unwrap();
+
+                            for line in logs {
+                                match line {
+                                    bollard::container::LogOutput::StdErr { message } => {
+                                        append_log_to_file(message, &mut file)
+                                    }
+                                    bollard::container::LogOutput::StdOut { message } => {
+                                        append_log_to_file(message, &mut file)
+                                    }
+                                    bollard::container::LogOutput::StdIn { message } => {
+                                        append_log_to_file(message, &mut file)
+                                    }
+                                    bollard::container::LogOutput::Console { message } => {
+                                        append_log_to_file(message, &mut file)
+                                    }
+                                }
+                            }
+                            // Save logs to file
+                        }
+                    }
+                }
+
+                NetworkCommands::Delete {} => {
+                    // Remove network and all containers related to this project
+                    let network = TrampolineNetwork::load(&project);
+                    network.delete().await;
+                }
+
                 NetworkCommands::Launch {} => {
+                    let network = TrampolineNetwork::load(&project);
+                    network.run().await;
+                }
+
+                NetworkCommands::LaunchOld {} => {
                     let image = DockerImage {
-                        name: "iamm/trampoline-env".to_string(),
+                        name: "tempest/trampoline-env".to_string(),
                         tag: Some("latest".to_string()),
                         file_path: Some("./".to_string()),
                         host_mappings: vec![],
@@ -169,7 +330,7 @@ fn main() -> Result<()> {
                 }
                 NetworkCommands::Indexer {} => {
                     let image = DockerImage {
-                        name: "iamm/trampoline-indexer".to_string(),
+                        name: "tempest/trampoline-indexer".to_string(),
                         tag: Some("latest".to_string()),
                         file_path: Some("./".to_string()),
                         host_mappings: vec![],
@@ -237,13 +398,14 @@ fn main() -> Result<()> {
                 }
                 NetworkCommands::Rpc { hash } => {
                     let hash = H256::from_str(hash.as_str())?;
-                    let mut rpc_client = rpc::RpcClient::new();
+                    //let mut rpc_client = rpc::RpcClient::new();
                     let url = format!(
                         "{}:{}",
                         project.config.env.as_ref().unwrap().chain.host,
                         project.config.env.as_ref().unwrap().chain.host_port
                     );
-                    let result = rpc_client.get_transaction(hash, url)?;
+                    let mut rpc_client = rpc::blocking::CkbRpcClient::new(url.as_str());
+                    let result = rpc_client.get_transaction(hash)?;
                     println!("Transaction with status: {}", serde_json::json!(result));
                 }
                 _ => {
@@ -255,4 +417,11 @@ fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+fn append_log_to_file(message: &Bytes, file: &mut File) {
+    let string = std::str::from_utf8(message).unwrap().to_string();
+    if let Err(e) = writeln!(file, "{}", string) {
+        eprintln!("Couldn't write to file: {}", e);
+    }
 }

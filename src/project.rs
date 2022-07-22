@@ -45,6 +45,9 @@ pub type ProjectResult<T> = std::result::Result<T, TrampolineProjectError>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct VirtualEnv {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub container_id: Option<String>,
     pub host: String,
     pub container_port: usize,
     pub host_port: usize,
@@ -212,6 +215,10 @@ impl TrampolineResource for TrampolineProject {
         std::env::set_current_dir(&project_dir)?;
         TrampolineProject::load(project_dir)
     }
+
+    
+
+    
 }
 
 // TO DO: This requires that the ckb node is not running.
@@ -247,7 +254,8 @@ impl TrampolineProject {
 
         let ckb_toml_path = env.chain.local_binding.join("ckb.toml").canonicalize()?;
         Ok(ckb_toml_path)
-    }
+    }    
+
 }
 
 fn find_ancestor(curr_path: &mut PathBuf, target: &str) -> Option<PathBuf> {

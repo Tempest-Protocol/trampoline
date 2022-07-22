@@ -39,11 +39,39 @@ pub enum TrampolineCommand {
 #[derive(Debug, StructOpt)]
 pub enum NetworkCommands {
     #[structopt(
+        name = "init",
+        about = "Initialize new network configuration without starting",
+        alias = "i"
+    )]
+    Init {},
+    #[structopt(
+        name = "recreate",
+        about = "Initialize new network from network.toml file"
+    )]
+    Recreate {},
+    #[structopt(
         name = "launch",
         about = "Launch local development network",
         alias = "l"
     )]
     Launch {},
+    #[structopt(name = "stop", about = "Stop local development network", alias = "s")]
+    Stop {},
+    #[structopt(name = "reset", about = "Reset local development network", alias = "r")]
+    Reset { service: Option<String> },
+    #[structopt(name = "logs", about = "Show logs for a particular network service")]
+    Logs {
+        service: String,
+        #[structopt(short, long)]
+        output: Option<PathBuf>,
+    },
+    #[structopt(name = "status", about = "Print status of local development network")]
+    Status {},
+    #[structopt(
+        name = "delete",
+        about = "Remove local development containers and network from system"
+    )]
+    Delete {},
     #[structopt(
         name = "set-miner",
         about = "Set the miner address so blocks can be mined locally"
@@ -74,13 +102,14 @@ pub enum NetworkCommands {
         about = "Start continuously mining blocks or mine a single block"
     )]
     Miner { one_block: Option<bool> },
-    #[structopt(
-        name = "init",
-        about = "Initialize new network configuration without starting"
-    )]
-    Init {},
     #[structopt(name = "rpc", about = "Make Rpc calls")]
     Rpc { hash: String },
+    #[structopt(
+        name = "launchold",
+        about = "Launch local development network",
+        alias = "lo"
+    )]
+    LaunchOld {},
 }
 #[derive(Debug, StructOpt)]
 pub enum SchemaCommand {

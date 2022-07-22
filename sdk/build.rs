@@ -10,5 +10,5 @@ fn main() {
         fs::write(&dest_path, dest_bytes)
             .unwrap_or_else(|_| panic!("Unable to write {} to output during build", bin));
     });
-    println!("cargo:rerun-if-changed=contract/builtins/");
+    println!("cargo:rerun-if-changed=contract/builtins/*");
 }

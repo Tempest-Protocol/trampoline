@@ -1,18 +1,21 @@
+pub mod genesis_info;
+mod trait_impls;
+pub use trait_impls::*;
+
 use crate::chain::*;
-use crate::contract::generator::{
-    CellQuery, CellQueryAttribute, QueryProvider, QueryStatement, TransactionProvider,
-};
+
 use ckb_chain_spec::consensus::{Consensus, ConsensusBuilder};
 use ckb_error::Error as CKBError;
-use ckb_jsonrpc_types::TransactionView as JsonTransaction;
+
 use ckb_script::{TransactionScriptsVerifier, TxVerifyEnv};
-use ckb_traits::{CellDataProvider, HeaderProvider};
+use ckb_types::core::Cycle;
+use ckb_types::packed::ScriptOptBuilder;
 use ckb_types::{
     bytes::Bytes,
     core::{
-        cell::{CellMeta, CellMetaBuilder, ResolvedTransaction},
+        cell::{CellMetaBuilder, ResolvedTransaction},
         hardfork::HardForkSwitch,
-        Capacity, Cycle, DepType, EpochExt, EpochNumberWithFraction, HeaderView, ScriptHashType,
+        Capacity, DepType, EpochExt, EpochNumberWithFraction, HeaderView, ScriptHashType,
         TransactionInfo, TransactionView,
     },
     packed::{Byte32, CellDep, CellOutput, OutPoint, Script},
@@ -20,9 +23,9 @@ use ckb_types::{
 use ckb_util::LinkedHashSet;
 use rand::{thread_rng, Rng};
 
-use ckb_always_success_script::ALWAYS_SUCCESS;
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use std::{cell::RefCell, collections::HashMap};
+
 const MAX_CYCLES: u64 = 500_0000;
 
 pub fn random_hash() -> Byte32 {
@@ -38,6 +41,7 @@ pub fn random_out_point() -> OutPoint {
 
 pub type CellOutputWithData = (CellOutput, Bytes);
 
+#[derive(Clone, Debug)]
 pub struct MockChain {
     pub cells: HashMap<OutPoint, CellOutputWithData>,
     pub outpoint_txs: HashMap<OutPoint, TransactionInfo>,
@@ -46,27 +50,9 @@ pub struct MockChain {
     pub cells_by_data_hash: HashMap<Byte32, OutPoint>,
     pub cells_by_lock_hash: HashMap<Byte32, Vec<OutPoint>>,
     pub cells_by_type_hash: HashMap<Byte32, Vec<OutPoint>>,
+    pub default_lock: Option<OutPoint>,
     pub debug: bool,
     messages: Arc<Mutex<Vec<Message>>>,
-}
-
-impl Default for MockChain {
-    fn default() -> Self {
-        let mut chain = Self {
-            cells: Default::default(),
-            outpoint_txs: Default::default(),
-            headers: Default::default(),
-            epoches: Default::default(),
-            cells_by_data_hash: Default::default(),
-            cells_by_lock_hash: Default::default(),
-            cells_by_type_hash: Default::default(),
-            debug: Default::default(),
-            messages: Default::default(),
-        };
-
-        chain.deploy_cell_with_data(Bytes::from(ALWAYS_SUCCESS.to_vec()));
-        chain
-    }
 }
 
 impl MockChain {
@@ -77,9 +63,17 @@ impl MockChain {
         }
         let tx_hash = random_hash();
         let out_point = OutPoint::new(tx_hash, 0);
-        let cell = CellOutput::new_builder()
+        let cell_builder = CellOutput::new_builder()
             .capacity(Capacity::bytes(data.len()).expect("Data Capacity").pack())
-            .build();
+            .type_(
+                ScriptOptBuilder::default()
+                    .set(Some(
+                        Script::new_builder().code_hash(data_hash.clone()).build(),
+                    ))
+                    .build(),
+            );
+
+        let cell = cell_builder.build();
 
         self.cells.insert(out_point.clone(), (cell, data));
         self.cells_by_data_hash.insert(data_hash, out_point.clone());
@@ -87,10 +81,16 @@ impl MockChain {
     }
 
     pub fn deploy_cell_output(&mut self, data: Bytes, output: CellOutput) -> OutPoint {
-        let data_hash = CellOutput::calc_data_hash(&data);
-        if let Some(out_point) = self.cells_by_data_hash.get(&data_hash) {
-            return out_point.to_owned();
+        match data.len() {
+            0 => {}
+            _ => {
+                let data_hash = CellOutput::calc_data_hash(&data);
+                if let Some(out_point) = self.cells_by_data_hash.get(&data_hash) {
+                    return out_point.to_owned();
+                }
+            }
         }
+
         let tx_hash = random_hash();
         let out_point = OutPoint::new(tx_hash, 0);
         self.create_cell_with_outpoint(out_point.clone(), output, data);
@@ -98,11 +98,7 @@ impl MockChain {
     }
 
     pub fn get_default_script_outpoint(&self) -> OutPoint {
-        let always_success_data_hash = CellOutput::calc_data_hash(ALWAYS_SUCCESS.as_ref());
-        self.cells_by_data_hash
-            .get(&always_success_data_hash)
-            .unwrap()
-            .clone()
+        self.default_lock.clone().unwrap()
     }
 
     pub fn deploy_random_cell_with_default_lock(
@@ -152,7 +148,9 @@ impl MockChain {
     pub fn create_cell_with_outpoint(&mut self, outp: OutPoint, cell: CellOutput, data: Bytes) {
         let data_hash = CellOutput::calc_data_hash(&data);
         self.cells_by_data_hash.insert(data_hash, outp.clone());
+
         self.cells.insert(outp.clone(), (cell.clone(), data));
+
         let cells = self.get_cells_by_lock_hash(cell.calc_lock_hash());
         if let Some(mut cells) = cells {
             cells.push(outp.clone());
@@ -333,7 +331,7 @@ impl MockChain {
     }
 
     /// Verify the transaction by given context (Consensus, TxVerifyEnv) in CKB-VM
-    ///
+    ///always
     /// Please see below links for more details:
     ///   - https://docs.rs/ckb-chain-spec/0.101.2/ckb_chain_spec/consensus/struct.Consensus.html
     ///   - https://docs.rs/ckb-types/0.101.2/ckb_types/core/hardfork/struct.HardForkSwitch.html
@@ -411,156 +409,159 @@ impl MockChain {
     }
 }
 
-impl CellDataProvider for MockChain {
-    // load Cell Data
-    fn load_cell_data(&self, cell: &CellMeta) -> Option<Bytes> {
-        cell.mem_cell_data
-            .as_ref()
-            .map(|data| Bytes::from(data.to_vec()))
-            .or_else(|| self.get_cell_data(&cell.out_point))
+// // Deploy system scripts from ckb-system-scripts bundled cell
+// fn genesis_event(chain: &mut MockChain) {
+//     todo!()
+//     // let bundle = BUNDLED_CELLS
+// }
+
+// for script in BUNDLED_CELL.file_names() {
+//             let data = BUNDLED_CELL.get(script).unwrap();
+//             let out_point = chain.deploy_cell_with_data(Bytes::from(data.to_vec()));
+// }
+
+// fn deploy_system_scripts(chain: &mut MockChain, cell: &Cell) -> ChainResult<OutPoint> {
+//     let (outp, data): CellOutputWithData = cell.into();
+//     let script = chain.build_script(&outp, data.clone().into()).unwrap();
+//     let outpoint = chain.deploy_cell_output(data, outp);
+//     Ok(outpoint)
+// }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use genesis_info::*;
+
+    fn mockchain_setup() -> (mock_chain::MockChain, ckb_types::core::BlockView) {
+        // Create a new mockchain
+        let mut chain = MockChain::default();
+
+        // Generate genesis block
+        let genesis_block = genesis_block_from_chain(&mut chain);
+
+        (chain, genesis_block)
     }
 
-    fn get_cell_data(&self, out_point: &OutPoint) -> Option<Bytes> {
-        self.cells
-            .get(out_point)
-            .map(|(_, data)| Bytes::from(data.to_vec()))
-    }
+    #[test]
+    fn default_mockchain_has_system_scripts_and_genesisinfo() {
+        let (chain, _genesis_block) = mockchain_setup();
 
-    fn get_cell_data_hash(&self, out_point: &OutPoint) -> Option<Byte32> {
-        self.cells
-            .get(out_point)
-            .map(|(_, data)| CellOutput::calc_data_hash(data))
-    }
-}
+        // Check each script
+        let multisig_code_hash_bytes =
+            Byte32::from_slice(&ckb_system_scripts::CODE_HASH_SECP256K1_BLAKE160_MULTISIG_ALL)
+                .unwrap();
+        let multisig_outpoint = chain.get_cell_by_data_hash(&multisig_code_hash_bytes);
+        assert!(multisig_outpoint.is_some());
 
-impl HeaderProvider for MockChain {
-    // load header
-    fn get_header(&self, block_hash: &Byte32) -> Option<HeaderView> {
-        self.headers.get(block_hash).cloned()
-    }
-}
+        let blake160_sighash_all_code_hash_bytes =
+            Byte32::from_slice(&ckb_system_scripts::CODE_HASH_SECP256K1_BLAKE160_SIGHASH_ALL)
+                .unwrap();
+        let blake160_sighash_all_outpoint =
+            chain.get_cell_by_data_hash(&blake160_sighash_all_code_hash_bytes);
+        assert!(blake160_sighash_all_outpoint.is_some());
 
-pub struct MockChainTxProvider {
-    pub chain: RefCell<MockChain>,
-}
-
-impl MockChainTxProvider {
-    pub fn new(chain: MockChain) -> Self {
-        Self {
-            chain: RefCell::new(chain),
-        }
-    }
-}
-
-impl TransactionProvider for MockChainTxProvider {
-    fn send_tx(&self, tx: JsonTransaction) -> Option<ckb_jsonrpc_types::Byte32> {
-        let mut chain = self.chain.borrow_mut();
-        let inner_tx = tx.inner;
-        let inner_tx = ckb_types::packed::Transaction::from(inner_tx);
-        let converted_tx_view = inner_tx.as_advanced_builder().build();
-        let tx = chain.complete_tx(converted_tx_view);
-        if let Ok(hash) = chain.receive_tx(&tx) {
-            let tx_hash: ckb_jsonrpc_types::Byte32 = hash.into();
-            Some(tx_hash)
-        } else {
-            None
-        }
-    }
-
-    fn verify_tx(&self, tx: JsonTransaction) -> bool {
-        let mut chain = self.chain.borrow_mut();
-        let inner_tx = tx.inner;
-        let inner_tx = ckb_types::packed::Transaction::from(inner_tx);
-        let converted_tx_view = inner_tx.as_advanced_builder().build();
-        let tx = chain.complete_tx(converted_tx_view);
-        println!(
-            "TX AFTER CHAIN COMPLETE {:#?}",
-            ckb_jsonrpc_types::TransactionView::from(tx.clone())
+        let dao = chain.get_cell_by_data_hash(
+            &Byte32::from_slice(&ckb_system_scripts::CODE_HASH_DAO).unwrap(),
         );
-        let result = chain.verify_tx(&tx, MAX_CYCLES);
-        match result {
-            Ok(_) => true,
-            Err(e) => {
-                println!("Error in tx verify: {:?}", e);
-                false
-            }
-        }
-    }
-}
+        assert!(dao.is_some());
 
-impl QueryProvider for MockChainTxProvider {
-    fn query_cell_meta(&self, query: CellQuery) -> Option<Vec<CellMeta>> {
-        if let Some(outpoints) = self.query(query) {
-            println!("OUTPOINTS TO CREATE CELL META: {:?}", outpoints);
-            Some(
-                outpoints
-                    .iter()
-                    .map(|outp| {
-                        let outp = ckb_types::packed::OutPoint::from(outp.clone());
-                        let cell_output = self.chain.borrow().get_cell(&outp).unwrap();
-                        CellMetaBuilder::from_cell_output(cell_output.0, cell_output.1)
-                            .out_point(outp)
-                            .build()
-                    })
-                    .collect(),
-            )
-        } else {
-            println!("NO OUTPOINTS TO RESOLVE IN QUERY CELL META");
-            None
-        }
+        let secp_data = chain.get_cell_by_data_hash(
+            &Byte32::from_slice(&ckb_system_scripts::CODE_HASH_SECP256K1_DATA).unwrap(),
+        );
+        assert!(secp_data.is_some());
     }
-    fn query(&self, query: CellQuery) -> Option<Vec<ckb_jsonrpc_types::OutPoint>> {
-        let CellQuery { _query, _limit } = query;
-        println!("QUERY FROM QUERY PROVIDER: {:?}", _query);
-        match _query {
-            QueryStatement::Single(query_attr) => match query_attr {
-                CellQueryAttribute::LockHash(hash) => {
-                    let cells = self.chain.borrow().get_cells_by_lock_hash(hash.into());
-                    Some(
-                        cells
-                            .unwrap()
-                            .into_iter()
-                            .map(|outp| outp.into())
-                            .collect::<Vec<ckb_jsonrpc_types::OutPoint>>(),
-                    )
-                }
-                CellQueryAttribute::LockScript(script) => {
-                    let script = ckb_types::packed::Script::from(script);
-                    let cells = self
-                        .chain
-                        .borrow()
-                        .get_cells_by_lock_hash(script.calc_script_hash());
-                    Some(
-                        cells
-                            .unwrap()
-                            .into_iter()
-                            .map(|outp| outp.into())
-                            .collect::<Vec<ckb_jsonrpc_types::OutPoint>>(),
-                    )
-                }
-                CellQueryAttribute::TypeScript(script) => {
-                    let script = ckb_types::packed::Script::from(script);
-                    let cells = self
-                        .chain
-                        .borrow()
-                        .get_cells_by_type_hash(script.calc_script_hash());
-                    Some(
-                        cells
-                            .unwrap()
-                            .into_iter()
-                            .map(|outp| outp.into())
-                            .collect::<Vec<ckb_jsonrpc_types::OutPoint>>(),
-                    )
-                }
-                CellQueryAttribute::DataHash(hash) => Some(vec![self
-                    .chain
-                    .borrow()
-                    .get_cell_by_data_hash(&hash.into())
-                    .unwrap()
-                    .into()]),
-                _ => panic!("Capacity based queries currently unsupported!"),
-            },
-            _ => panic!("Compund queries currently unsupported!"),
-        }
+
+    #[test]
+    fn test_genesis_block_has_dao_cell() {
+        let (chain, genesis_block) = mockchain_setup();
+
+        // Get the cell by hash
+        let dao_code_hash_bytes = Byte32::from_slice(&ckb_system_scripts::CODE_HASH_DAO).unwrap();
+        let dao_outpoint = chain.get_cell_by_data_hash(&dao_code_hash_bytes).unwrap();
+        let dao_cell = chain.get_cell(&dao_outpoint).unwrap();
+        let cell_by_hash = dao_cell.0;
+
+        // Get cell by location
+        let location = crate::types::constants::DAO_OUTPUT_LOC; // TX 0 OUTP 2
+        let cell_by_location_in_block = genesis_block.transactions()[location.0]
+            .outputs()
+            .get(location.1)
+            .unwrap();
+
+        // Compare the two
+        assert_eq!(cell_by_hash, cell_by_location_in_block);
+    }
+
+    #[test]
+    fn test_genesis_block_has_secp_multisig_cell() {
+        let (chain, genesis_block) = mockchain_setup();
+
+        // Get the cell by hash
+        let multisig_code_hash_bytes =
+            Byte32::from_slice(&ckb_system_scripts::CODE_HASH_SECP256K1_BLAKE160_MULTISIG_ALL)
+                .unwrap();
+        let multisig_outpoint = chain
+            .get_cell_by_data_hash(&multisig_code_hash_bytes)
+            .unwrap();
+        let multisig_cell = chain.get_cell(&multisig_outpoint).unwrap();
+        let cell_by_hash = multisig_cell.0;
+
+        // Get cell by location
+        let location = crate::types::constants::MULTISIG_OUTPUT_LOC; // TX 0 OUTP 4
+        let cell_by_location_in_block = genesis_block.transactions()[location.0]
+            .outputs()
+            .get(location.1)
+            .unwrap();
+
+        // Compare the two
+        assert_eq!(cell_by_hash, cell_by_location_in_block);
+
+        // Check the cell's data
+        let data_hash = CellOutput::calc_data_hash(&multisig_cell.1);
+        assert_eq!(
+            ckb_resource::CODE_HASH_SECP256K1_BLAKE160_MULTISIG_ALL.pack(),
+            data_hash
+        );
+    }
+
+    #[test]
+    fn test_genesis_block_has_secp_sighash_cell() {
+        let (chain, genesis_block) = mockchain_setup();
+
+        // Get the cell by hash
+        let secp_sighash_outp = chain
+            .get_cell_by_data_hash(
+                &Byte32::from_slice(&ckb_system_scripts::CODE_HASH_SECP256K1_BLAKE160_SIGHASH_ALL)
+                    .unwrap(),
+            )
+            .unwrap();
+        let secp_sighash_cell = chain.get_cell(&secp_sighash_outp).unwrap();
+        let cell_by_hash = secp_sighash_cell.0;
+
+        let location = crate::types::constants::SIGHASH_OUTPUT_LOC; // TX 0 OUTP 1
+        let cell_by_location_in_block = genesis_block.transactions()[location.0]
+            .outputs()
+            .get(location.1)
+            .unwrap();
+
+        assert_eq!(cell_by_location_in_block, cell_by_hash);
+    }
+
+    #[test]
+    fn test_genesis_block_has_number_0() {
+        // Create a new mockchain
+        let mut chain = MockChain::default();
+
+        // Create default genesis scripts
+        let _genesis_scripts = GenesisScripts::default();
+
+        // Run genesis event on the mockchain with the scripts
+        let _scripts = genesis_event(&mut chain);
+
+        // Generate genesis block
+        let genesis_block = genesis_block_from_chain(&mut chain);
+
+        // Check if genesis block has number 0
+        assert_eq!(genesis_block.header().number(), 0);
     }
 }

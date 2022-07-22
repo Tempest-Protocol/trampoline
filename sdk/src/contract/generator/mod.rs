@@ -1,113 +1,19 @@
-use ckb_jsonrpc_types::{Byte32, Capacity, OutPoint, Script, TransactionView as JsonTransaction};
+use ckb_jsonrpc_types::{Byte32, OutPoint, TransactionView as JsonTransaction};
 use ckb_types::packed::CellDepBuilder;
 use std::prelude::v1::*;
 
-use crate::ckb_types::{
-    core::{cell::CellMeta, TransactionBuilder, TransactionView},
-    packed::CellInputBuilder,
-    prelude::*,
+use crate::types::query::*;
+use crate::types::transaction::CellMetaTransaction;
+use crate::{
+    chain::Chain,
+    ckb_types::{
+        core::{cell::CellMeta, TransactionBuilder},
+        packed::CellInputBuilder,
+        prelude::*,
+    },
 };
-
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
-
-use crate::chain::CellOutputWithData;
-
-#[derive(Clone, Debug)]
-pub struct CellMetaTransaction {
-    pub tx: TransactionView,
-    pub inputs: Vec<CellMeta>,
-}
-
-impl From<TransactionView> for CellMetaTransaction {
-    fn from(tx: TransactionView) -> Self {
-        Self { tx, inputs: vec![] }
-    }
-}
-
-impl CellMetaTransaction {
-    pub fn tx(self, tx: TransactionView) -> Self {
-        Self {
-            tx,
-            inputs: self.inputs,
-        }
-    }
-
-    pub fn with_inputs(self, inputs: Vec<CellMeta>) -> Self {
-        Self {
-            tx: self.tx,
-            inputs,
-        }
-    }
-
-    pub fn as_advanced_builder(&self) -> TransactionBuilder {
-        self.tx.as_advanced_builder()
-    }
-
-    pub fn cell_deps(&self) -> crate::ckb_types::packed::CellDepVec {
-        self.tx.cell_deps()
-    }
-
-    pub fn inputs(&self) -> crate::ckb_types::packed::CellInputVec {
-        self.tx.inputs()
-    }
-
-    pub fn outputs(&self) -> crate::ckb_types::packed::CellOutputVec {
-        self.tx.outputs()
-    }
-
-    pub fn outputs_data(&self) -> crate::ckb_types::packed::BytesVec {
-        self.tx.outputs_data()
-    }
-
-    pub fn witnesses(&self) -> crate::ckb_types::packed::BytesVec {
-        self.tx.witnesses()
-    }
-
-    pub fn output(&self, idx: usize) -> Option<crate::ckb_types::packed::CellOutput> {
-        self.tx.output(idx)
-    }
-
-    pub fn output_with_data(&self, idx: usize) -> Option<CellOutputWithData> {
-        self.tx.output_with_data(idx)
-    }
-
-    pub fn output_pts(&self) -> Vec<crate::ckb_types::packed::OutPoint> {
-        self.tx.output_pts()
-    }
-
-    pub fn cell_deps_iter(&self) -> impl Iterator<Item = crate::ckb_types::packed::CellDep> {
-        self.tx.cell_deps_iter()
-    }
-
-    pub fn output_pts_iter(&self) -> impl Iterator<Item = crate::ckb_types::packed::OutPoint> {
-        self.tx.output_pts_iter()
-    }
-
-    pub fn input_pts_iter(&self) -> impl Iterator<Item = crate::ckb_types::packed::OutPoint> {
-        self.tx.input_pts_iter()
-    }
-
-    pub fn outputs_with_data_iter(&self) -> impl Iterator<Item = CellOutputWithData> {
-        self.tx.outputs_with_data_iter()
-    }
-
-    pub fn outputs_capacity(
-        &self,
-    ) -> Result<crate::ckb_types::core::Capacity, ckb_types::core::CapacityError> {
-        self.tx.outputs_capacity()
-    }
-    pub fn fake_hash(mut self, hash: crate::ckb_types::packed::Byte32) -> Self {
-        self.tx = self.tx.fake_hash(hash);
-        self
-    }
-
-    /// Sets a fake witness hash.
-    pub fn fake_witness_hash(mut self, witness_hash: crate::ckb_types::packed::Byte32) -> Self {
-        self.tx = self.tx.fake_witness_hash(witness_hash);
-        self
-    }
-}
 
 // Note: Uses ckb_jsonrpc_types
 pub trait TransactionProvider {
@@ -131,46 +37,24 @@ pub trait GeneratorMiddleware {
     );
 }
 
-// TODO: implement from for CellQueryAttribute on json_types and packed types
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum CellQueryAttribute {
-    LockHash(Byte32),
-    LockScript(Script),
-    TypeScript(Script),
-    MinCapacity(Capacity),
-    MaxCapacity(Capacity),
-    DataHash(Byte32),
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum QueryStatement {
-    Single(CellQueryAttribute),
-    FilterFrom(CellQueryAttribute, CellQueryAttribute),
-    Any(Vec<CellQueryAttribute>),
-    All(Vec<CellQueryAttribute>),
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct CellQuery {
-    pub _query: QueryStatement,
-    pub _limit: u64,
-}
-
 pub trait QueryProvider {
     fn query(&self, query: CellQuery) -> Option<Vec<OutPoint>>;
     fn query_cell_meta(&self, query: CellQuery) -> Option<Vec<CellMeta>>;
 }
 
 #[derive(Default)]
-pub struct Generator<'a, 'b> {
+pub struct Generator<'a, 'b, C: Chain> {
     middleware: Vec<&'a dyn GeneratorMiddleware>,
-    chain_service: Option<&'b dyn TransactionProvider>,
+    chain_service: Option<&'b C>,
     query_service: Option<&'b dyn QueryProvider>,
     tx: Option<CellMetaTransaction>,
     query_queue: Arc<Mutex<Vec<CellQuery>>>,
 }
 
-impl<'a, 'b> Generator<'a, 'b> {
+impl<'a, 'b, C> Generator<'a, 'b, C>
+where
+    C: Chain,
+{
     pub fn new() -> Self {
         Generator {
             middleware: vec![],
@@ -186,7 +70,7 @@ impl<'a, 'b> Generator<'a, 'b> {
         self
     }
 
-    pub fn chain_service(mut self, chain_service: &'b dyn TransactionProvider) -> Self {
+    pub fn chain_service(mut self, chain_service: &'b C) -> Self {
         self.chain_service = Some(chain_service);
         self
     }
@@ -197,12 +81,11 @@ impl<'a, 'b> Generator<'a, 'b> {
     }
 
     pub fn query(&self, query: CellQuery) -> Option<Vec<CellMeta>> {
-        let res = self.query_service.unwrap().query_cell_meta(query.clone());
-        println!(
-            "Res in generator.query for cell_query {:?} is {:?}",
-            query, res
-        );
-        res
+        // println!(
+        //     "Res in generator.query for cell_query {:?} is {:?}",
+        //     query, res
+        // );
+        self.query_service.unwrap().query_cell_meta(query)
     }
 
     pub fn generate(&self) -> CellMetaTransaction {
@@ -219,7 +102,7 @@ impl<'a, 'b> Generator<'a, 'b> {
     }
 }
 
-impl GeneratorMiddleware for Generator<'_, '_> {
+impl<C: Chain> GeneratorMiddleware for Generator<'_, '_, C> {
     fn update_query_register(
         &self,
         tx: CellMetaTransaction,
@@ -236,7 +119,7 @@ impl GeneratorMiddleware for Generator<'_, '_> {
     ) -> CellMetaTransaction {
         self.update_query_register(tx.clone(), query_register.clone());
         let inputs = self.resolve_queries(query_register.clone());
-        println!("RESOLVED INPUTS IN GENERATOR PIPE: {:?}", inputs);
+        // println!("RESOLVED INPUTS IN GENERATOR PIPE: {:?}", inputs);
         let inner_tx = tx
             .as_advanced_builder()
             .set_inputs(

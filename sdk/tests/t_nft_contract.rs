@@ -15,10 +15,10 @@ use trampoline_sdk::ckb_types::{
     prelude::*,
     H256,
 };
+use trampoline_sdk::contract::auxiliary_types::*;
 use trampoline_sdk::contract::*;
 use trampoline_sdk::contract::{builtins::t_nft::*, generator::*};
-use trampoline_sdk::contract::{schema::*, ContractSource};
-
+use trampoline_sdk::query::*;
 // TO DO
 // Should just add a Bytes type to trampoline which provides a single interface for all these
 // Various byte types
@@ -141,9 +141,9 @@ fn test_success_deploy() {
         }
     });
 
-    let chain_rpc = ChainRpc::new(chain);
+    let chain_rpc = ChainRpc::new(chain.clone());
     let generator = Generator::new()
-        .chain_service(&chain_rpc)
+        .chain_service(&chain)
         .query_service(&chain_rpc)
         .pipeline(vec![&tnft_contract]);
     let new_mint_tx = generator.generate(); //generator.pipe(tx_skeleton, Arc::new(Mutex::new(vec![])));
@@ -193,9 +193,9 @@ fn test_invalid_mismatched_genesis_id() {
         }
     });
 
-    let chain_rpc = ChainRpc::new(chain);
+    let chain_rpc = ChainRpc::new(chain.clone());
     let generator = Generator::new()
-        .chain_service(&chain_rpc)
+        .chain_service(&chain)
         .query_service(&chain_rpc)
         .pipeline(vec![&tnft_contract]);
     let new_mint_tx = generator.generate(); //generator.pipe(tx_skeleton, Arc::new(Mutex::new(vec![])));
@@ -263,9 +263,9 @@ fn test_invalid_mint_of_pre_existing_tnft() {
         }
     });
 
-    let chain_rpc = ChainRpc::new(chain);
+    let chain_rpc = ChainRpc::new(chain.clone());
     let generator = Generator::new()
-        .chain_service(&chain_rpc)
+        .chain_service(&chain)
         .query_service(&chain_rpc)
         .pipeline(vec![&tnft_contract]);
     let new_mint_tx = generator.generate(); //generator.pipe(tx_skeleton, Arc::new(Mutex::new(vec![])));

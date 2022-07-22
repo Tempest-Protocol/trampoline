@@ -6,40 +6,52 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = { version = "1.0.56"}
-blake2b-rs = { version = "0.2.0"}
-bytes = { version = "1.1.0"}
-ckb-always-success-script = { version = "0.0.1"}
-ckb-app-config = { version = "0.101.4"}
-ckb-chain-spec = { version = "0.101.4"}
-ckb-crypto = { version = "0.101.4", features = ["secp"] }
-ckb-error = { version = "0.101.4"}
-ckb-hash = { version = "0.101.4"}
-ckb-jsonrpc-types = { version = "0.101.4"}
-ckb-resource = { version = "0.101.4"}
-ckb-script = { version = "0.101.4"}
-ckb-system-scripts = { version = "0.5.4"}
-ckb-traits = { version = "0.101.4"}
-ckb-types = { version = "0.101.4"}
-ckb-util = { version = "0.101.4"}
-ckb-verification = { version = "0.101.4"}
-ckb-sdk = {git = "https://github.com/TheWaWaR/ckb-sdk"}
-hex = { version = "0.4.3"}
-includedir = { version = "0.6.0"}
-jsonrpc-core = { version = "18.0.0"}
-lazy_static = { version = "1.4.0"}
+anyhow = { version = "1.0.56", optional = true}
+blake2b-rs = { version = "0.2.0", optional = true}
+bytes = { version = "1.1.0", optional = true}
+ckb-always-success-script = { version = "0.0.1", optional = true}
+blake2b-ref = {version = "0.3.0", optional = true }
+ckb-chain-spec = { version = "0.103.0", optional = true}
+ckb-crypto = { version = "0.103.0", features = ["secp"], optional = true}
+ckb-error = { version = "0.103.0", optional = true}
+ckb-hash = { version = "0.103.0", optional = true}
+ckb-jsonrpc-types = { version = "0.103.0", optional = true}
+ckb-resource = { version = "0.103.0", optional = true}
+ckb-script = { version = "0.103.0", optional = true}
+ckb-system-scripts = { version = "0.5.4", optional = true}
+ckb-traits = { version = "0.103.0", optional = true}
+ckb-types = { version = "0.103.0", optional = true}
+ckb-util = { version = "0.103.0", optional = true}
+ckb-verification = { version = "0.103.0", optional = true}
+ckb-sdk = {git = "https://github.com/nervosnetwork/ckb-sdk-rust", optional = true, rev="f141d9ff2af6895203ab3ab8663ab2f0be7bd3f2"}
+hex = { version = "0.4.3", optional = true}
+includedir = { version = "0.6.0", optional = true}
+jsonrpc-core = { version = "18.0.0", optional = true}
 molecule = { version = "0.7.2", default-features = false }
-molecule-codegen = { version = "0.7.2"}
-phf = { version = "0.10.1"}
-rand = { version = "0.8.5"}
-reqwest = { version = "0.11.10", features = ["json", "blocking"]}
-serde = { version = "1.0.136", features = ["derive"]}
-serde_json = { version = "1.0.79"}
-structopt = { version = "0.3.26"}
-thiserror = { version = "1.0.30"}
-tokio = { version = "1.17.0", features = ["full"]}
-toml = { version = "0.5.8"}
-walkdir = { version = "2.3.2"}
-ckb-standalone-types = { version = "0.1.2", default-features = false}
-secp256k1 = { version = "0.20", features = ["recovery"] }
+phf = { version = "0.10.1", optional = true}
+rand = { version = "0.8.5", optional = true}
+reqwest = { version = "0.11.10", features = ["json", "blocking"], optional = true}
+serde = { version = "1.0.136", features = ["derive"], optional = true}
+serde_json = { version = "1.0.79", optional = true}
+thiserror = { version = "1.0.30", optional = true}
+tokio = { version = "1.17.0", features = ["full"], optional = true}
+toml = { version = "0.5.8", optional = true}
+ckb-standalone-types = { version = "0.1.2", default-features = false, optional = true}
+secp256k1 = { version = "0.20", features = ["recovery"], optional = true }
+no-std-compat = { version = "0.4.1", features = ["alloc"] }
+lru = { version = "0.7.6", optional = true }
+
+[dev-dependencies]
+trampoline-utils = {path = "utils"}
+
+[features]
+default = ["std"]
+script = ["ckb-standalone-types", "blake2b-ref", "ckb-standalone-types"]
+std = ["no-std-compat/std", "tokio/full", "molecule/std", "ckb-always-success-script",
+    "ckb-chain-spec", "ckb-crypto", "ckb-error", "ckb-hash", "ckb-jsonrpc-types", "ckb-resource",
+    "ckb-script", "ckb-system-scripts", "ckb-traits", "ckb-types", "ckb-util", "ckb-verification", "anyhow",
+    "bytes", "blake2b-rs", "hex", "jsonrpc-core", "phf", "rand", "reqwest",
+    "serde", "serde_json", "tokio", "toml", "includedir", "ckb-sdk", "secp256k1", "thiserror", "lru"
+]
+rpc = ["std"]
 

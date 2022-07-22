@@ -1,17 +1,16 @@
-use ckb_types::{
-    bytes::Bytes,
-    core::TransactionView,
-    packed::{Byte32, CellOutput},
-    prelude::*,
-};
-use ckb_verification::TransactionError;
 use std::prelude::v1::*;
-pub type CellOutputWithData = (CellOutput, Bytes);
+mod error;
 mod mock_chain;
+pub mod rpc_chain;
+mod traits;
+pub use error::*;
 pub use mock_chain::*;
+pub use rpc_chain::*;
+pub use traits::*;
 
-// Most of this is taken from https://github.com/nervosnetwork/ckb-tool.
-// Reimplementation here due to slight changes in the API & version conflicts
+use crate::types::cell::{Cell, CellOutputWithData};
+use ckb_types::{core::TransactionView, packed::Byte32, prelude::*};
+use ckb_verification::TransactionError;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Message {
